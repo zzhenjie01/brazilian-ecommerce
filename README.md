@@ -53,3 +53,10 @@ After a customer purchases the product from Olist Store a seller gets notified t
 ### geolocation
 
 - "geolocation_zip_code_prefix","geolocation_lat","geolocation_lng","geolocation_city","geolocation_state"
+
+## To Do
+
+- Slowly Changing Dimensions
+- Materialization
+- Data Lineage & Documentation
+- Surrogate Key
