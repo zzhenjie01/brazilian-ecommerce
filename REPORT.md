@@ -30,3 +30,10 @@ We build dimension tables first because fact tables contain foreign keys that re
 For `order_payments` table, we did not convert it to a dimension table because it contains information on the installment payments per order which we consider it to be a measure. Thus, we aggregated all the installment payments per `order_id` and kept only the `order_id`, `total_payment_value` and `payment_installments`. Thereafter, we will merge it into our `fact_order_items` table.
 
 For `order_reviews` table, we also did not convert it to a dimension table because it contains review scores which we consider it to be a measure. However, a particular order can have multiple reviews so we need to take average of all the scores. However, an order can also have a follow-up review so we need to only consider the latest set of review scores before taking average. We are not interested in the text reviews since we are not doing sentiment analysis. Thus, we will only keep `order_id` and `average_review_score` before merging into our `fact_order_items` table.
+
+There is a missing payment in `order_payments` based on `order_id` that is not present in `order_items`. Also we note that there are some null values in some datetime columns and also payment value columns in the fact table. One explanation is that some of these records are orders that are just placed and are either:
+
+1) waiting for customer payment (missing `total_payment_value` and `payment_installments`)
+2) or waiting for order to be approved by platform (missing `order_approved_at`)
+3) or waiting for seller's packed parcel to arrive at logistics partner warehouse (missing `order_delivered_carrier_date`)
+4) or waiting for customer to receive the parcel (missing `order_delivered_customer_date`)
