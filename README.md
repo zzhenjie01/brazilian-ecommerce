@@ -54,6 +54,16 @@ After a customer purchases the product from Olist Store a seller gets notified t
 
 - "geolocation_zip_code_prefix","geolocation_lat","geolocation_lng","geolocation_city","geolocation_state"
 
+## Python Setup
+
+```bash
+git clone https://github.com/zzhenjie01/brazilian-ecommerce.git
+```
+
+```bash
+uv sync
+```
+
 ## ClickHouse Docker Setup
 
 [ClickHouse Network Ports](https://clickhouse.com/docs/guides/sre/network-ports)
@@ -68,6 +78,19 @@ docker-compose --project-name brazilian-ecommerce up -d
 We can then use tools like DbVisualizer to connect to the Dockerized ClickHouse container at `http://localhost:8132`
 
 We can run `src/clickhouse_ddl.sql` in DbVisualizer connected to ClickHouse to create the fact and dimension tables.
+
+To insert the fact and dimension tables into ClickHouse, we can either doing via command line or run a python script. In general, it is better to run python script as it allows automation.
+
+Make sure you are at the project root directory and run the following commands.
+
+```bash
+docker exec -i clickhouse clickhouse-client --query="INSERT INTO ecommerce.dim_customers FORMAT CSV" < data/processed/dim_customers.csv
+docker exec -i clickhouse clickhouse-client --query="INSERT INTO ecommerce.dim_sellers FORMAT CSV" < data/processed/dim_sellers.csv
+docker exec -i clickhouse clickhouse-client --query="INSERT INTO ecommerce.dim_products FORMAT CSV" < data/processed/dim_products.csv
+docker exec -i clickhouse clickhouse-client --query="INSERT INTO ecommerce.fact_order_items FORMAT CSV" < data/processed/fact_order_items.csv
+```
+
+To use run the python script, 
 
 To stop ClickHouse, run the following command in terminal.
 

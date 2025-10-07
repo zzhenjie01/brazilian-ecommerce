@@ -60,3 +60,18 @@ CREATE TABLE IF NOT EXISTS brazilian_ecommerce.fact_order_items (
 ) ENGINE = MergeTree
 PARTITION BY toYYYYMM(order_purchase_timestamp) -- partition by month for performance
 ORDER BY (order_id, order_item_id);
+
+/*
+Used to delete all data without dropping the table definitions
+*/
+-- -- Customers Dimension Table
+-- TRUNCATE TABLE IF EXISTS brazilian_ecommerce.dim_customers;
+
+-- -- Sellers Dimension Table
+-- TRUNCATE TABLE IF EXISTS brazilian_ecommerce.dim_sellers;
+
+-- -- Products Dimension Table
+-- TRUNCATE TABLE IF EXISTS brazilian_ecommerce.dim_products;
+
+-- -- Orders Fact Table
+-- TRUNCATE TABLE IF EXISTS brazilian_ecommerce.fact_order_items;

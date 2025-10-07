@@ -38,7 +38,15 @@ There is a missing payment in `order_payments` based on `order_id` that is not p
 3) or waiting for seller's packed parcel to arrive at logistics partner warehouse (missing `order_delivered_carrier_date`)
 4) or waiting for customer to receive the parcel (missing `order_delivered_customer_date`)
 
+We may not want to fill these missing values with a value because substituting a zero for missing price or payment values may inaccurately skew aggregate calculations such as `AVG()`.
+
 ## ClickHouse
+
+Primary keys in ClickHouse define the sort order of data parts on disk and create a sparse primary index. This index is used to efficiently locate blocks of rows for queries that filter on the primary key columns. However, unlike traditional relational databases, a ClickHouse primary key does not enforce uniqueness. Duplicate values are allowed in primary key columns. The primary key is crucial for query performance, especially for range queries and filters on the primary key columns.
+
+[Official ClickHouse Docs](https://clickhouse.com/docs/best-practices/choosing-a-primary-key)
+
+ClickHouse explicitly does not support foreign key constraints. This means there are no mechanisms to enforce referential integrity between tables at the database level. Thus, when working with ClickHouse, we typically manage relationships between tables through application-level logic or by designing denormalized tables to minimize the need for joins.
 
 ### DDL
 
