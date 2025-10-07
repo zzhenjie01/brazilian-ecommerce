@@ -37,3 +37,18 @@ There is a missing payment in `order_payments` based on `order_id` that is not p
 2) or waiting for order to be approved by platform (missing `order_approved_at`)
 3) or waiting for seller's packed parcel to arrive at logistics partner warehouse (missing `order_delivered_carrier_date`)
 4) or waiting for customer to receive the parcel (missing `order_delivered_customer_date`)
+
+## ClickHouse
+
+### DDL
+
+Dimension Tables:
+
+- For the keys, we use `UInt64` instead of `UInt32` because we forsee that in the future, there may be many more records.
+- For lattitudes and longitudes, we chose `Float64` as it is more precise than `Float32` which may matter when doing geospatial visualization on only a single country.
+
+Fact Table:
+
+- Used `Datetime` instead of `Datetime64` as the timestamp data is only up till precision level of seconds instead of milliseconds or nanoseconds.
+- Set `DateTime` to be Sao Paulo although the best practice is to store in UTC time in database which requires converstion during ETL and conversion in the application layer. This introduces overhead.
+- For monetary quantities like `price`, we use `Decimal(15, 2)` datatype since floats are inaccurate in representing money. We assume that the largest money we are going to handle is 1 tillion which has 15 digits including the 2 decimal digits.

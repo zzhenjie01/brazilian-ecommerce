@@ -54,6 +54,33 @@ After a customer purchases the product from Olist Store a seller gets notified t
 
 - "geolocation_zip_code_prefix","geolocation_lat","geolocation_lng","geolocation_city","geolocation_state"
 
+## ClickHouse Docker Setup
+
+[ClickHouse Network Ports](https://clickhouse.com/docs/guides/sre/network-ports)
+[ClickHouse Official Image](https://hub.docker.com/_/clickhouse)
+
+Make sure Docker Desktop is running in the background. Then `cd` into `docker/` folder and run the following command to start the docker container.
+
+```bash
+docker-compose --project-name brazilian-ecommerce up -d
+```
+
+We can then use tools like DbVisualizer to connect to the Dockerized ClickHouse container at `http://localhost:8132`
+
+We can run `src/clickhouse_ddl.sql` in DbVisualizer connected to ClickHouse to create the fact and dimension tables.
+
+To stop ClickHouse, run the following command in terminal.
+
+```bash
+docker-compose stop
+```
+
+```bash
+docker-compose down           # Stop and remove
+docker-compose logs -f        # View logs
+docker-compose restart        # Restart
+```
+
 ## To Do
 
 - Slowly Changing Dimensions
