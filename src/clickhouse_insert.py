@@ -1,46 +1,44 @@
+import os
 import clickhouse_connect
-import pandas as pd
 
 def main():
-    # Connect to ClickHouse server
-    # Ensure that ClickHouse is running and the database 'brazilian_ecommerce' exists before running this script
+    # Connect to ClickHouse
     client = clickhouse_connect.get_client(
-        host='localhost', 
-        port=8123, 
-        username='admin', 
-        password='admin', 
+        host='localhost',
+        port=8123,
+        username='admin',
+        password='admin',
         database='brazilian_ecommerce'
     )
 
+    # Set current script as working directory
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+    # Paths to your Parquet files
+    tables = {
+        "dim_customers": "../data/processed/dim_customers.parquet",
+        "dim_sellers": "../data/processed/dim_sellers.parquet",
+        "dim_products": "../data/processed/dim_products.parquet",
+        "fact_order_items": "../data/processed/fact_order_items.parquet"
+    }
+
     try:
-        # Read CSV file into DataFrame
-        dim_customers = pd.read_csv('data/processed/dim_customers.csv')
-        dim_sellers = pd.read_csv('data/processed/dim_sellers.csv')
-        dim_products = pd.read_csv('data/processed/dim_products.csv')
-        fact_order_items = pd.read_csv('data/processed/fact_order_items.csv')
+        # Insert each Parquet file
+        for table_name, parquet_path in tables.items():
+            print(f"Inserting {table_name} from {parquet_path} ...")
+            with open(parquet_path, 'rb') as f:
+                client.command(
+                    f"INSERT INTO {table_name} FORMAT Parquet",
+                    data=f.read()
+                )
+            print(f"{table_name} inserted successfully.")
 
-        # Start transaction
-        client.command('BEGIN TRANSACTION')
-
-        # Insert DataFrames into ClickHouse tables
-        # The column names in the DataFrames must match the column names in the ClickHouse tables
-        client.insert_df('dim_customers', dim_customers)
-        client.insert_df('dim_sellers', dim_sellers)
-        client.insert_df('dim_products', dim_products)
-        client.insert_df('fact_order_items', fact_order_items)
-
-        # Commit transaction
-        client.command('COMMIT')
-
-        print("Data inserted successfully.")
+        print("All data inserted successfully.")
 
     except Exception as e:
-        # Rollback transaction in case of error
-        client.command('ROLLBACK')
-        print("Transaction rolled back due to error:", e)
+        print("Error while inserting data:", e)
 
     finally:
-        # Close the client connection
         client.close()
 
 if __name__ == "__main__":

@@ -40,6 +40,8 @@ There is a missing payment in `order_payments` based on `order_id` that is not p
 
 We may not want to fill these missing values with a value because substituting a zero for missing price or payment values may inaccurately skew aggregate calculations such as `AVG()`.
 
+We casted columns in Pandas to match the datatype that is required by the ClickHouse schema. Also, we note that `int32` is different from `Int32`. The former is NumPy's `int32` data type which cannot hold nulls while the latter is Pandas' dedicated Int32Dtype ExtensionDtype which is a newer, nullable integer data type introduced in Pandas to address the issue of NaN forcing integer columns to become floats. For `float64` columns we don't have to cast anything as `float64` can store `NaN`.
+
 ## ClickHouse
 
 Primary keys in ClickHouse define the sort order of data parts on disk and create a sparse primary index. This index is used to efficiently locate blocks of rows for queries that filter on the primary key columns. However, unlike traditional relational databases, a ClickHouse primary key does not enforce uniqueness. Duplicate values are allowed in primary key columns. The primary key is crucial for query performance, especially for range queries and filters on the primary key columns.
@@ -47,6 +49,8 @@ Primary keys in ClickHouse define the sort order of data parts on disk and creat
 [Official ClickHouse Docs](https://clickhouse.com/docs/best-practices/choosing-a-primary-key)
 
 ClickHouse explicitly does not support foreign key constraints. This means there are no mechanisms to enforce referential integrity between tables at the database level. Thus, when working with ClickHouse, we typically manage relationships between tables through application-level logic or by designing denormalized tables to minimize the need for joins.
+
+ClickHouse does not support transactional semantics `BEGIN`, `COMMIT`, `ROLLBACK` in the same way that SQL databases like PostgreSQL or MySQL do. At the time of writing, the support is only in experimental stage. ClickHouse inserts are atomic per query — each `INSERT` is its own “transaction.” So, if one table fails to insert, the others will not be rolled back automatically, but the failed one simply won’t insert anything.
 
 ### DDL
 
@@ -60,3 +64,41 @@ Fact Table:
 - Used `Datetime` instead of `Datetime64` as the timestamp data is only up till precision level of seconds instead of milliseconds or nanoseconds.
 - Set `DateTime` to be Sao Paulo although the best practice is to store in UTC time in database which requires converstion during ETL and conversion in the application layer. This introduces overhead.
 - For monetary quantities like `price`, we use `Decimal(15, 2)` datatype since floats are inaccurate in representing money. We assume that the largest money we are going to handle is 1 tillion which has 15 digits including the 2 decimal digits.
+
+## Errors
+
+Occured when I try to convert the timestamp in string to actual datetime datatype localized to Sao Paulo time. This is due to Brazil using Daylight Savings Time (DST) for certain periods of the year.
+
+```text
+---------------------------------------------------------------------------
+AmbiguousTimeError                        Traceback (most recent call last)
+Cell In[14], line 14
+     12     fact_order_items[col] = pd.to_datetime(fact_order_items[col], errors="coerce") # coerce errors/nuls to NaT
+     13     # Assign Sao Paulo timezone without shifting
+---> 14     fact_order_items[col] = fact_order_items[col].dt.tz_localize("America/Sao_Paulo")
+     16 fact_order_items["payment_installments"] = fact_order_items["payment_installments"].astype("UInt32")
+     17 fact_order_items["average_review_score"] = fact_order_items["average_review_score"].astype("float32")
+
+File c:\Users\zzhen\projects\brazilian-ecommerce\.venv\Lib\site-packages\pandas\core\accessor.py:112, in PandasDelegate._add_delegate_accessors.<locals>._create_delegator_method.<locals>.f(self, *args, **kwargs)
+    111 def f(self, *args, **kwargs):
+--> 112     return self._delegate_method(name, *args, **kwargs)
+
+File c:\Users\zzhen\projects\brazilian-ecommerce\.venv\Lib\site-packages\pandas\core\indexes\accessors.py:132, in Properties._delegate_method(self, name, *args, **kwargs)
+    129 values = self._get_values()
+    131 method = getattr(values, name)
+--> 132 result = method(*args, **kwargs)
+    134 if not is_list_like(result):
+    135     return result
+
+File c:\Users\zzhen\projects\brazilian-ecommerce\.venv\Lib\site-packages\pandas\core\indexes\datetimes.py:293, in DatetimeIndex.tz_localize(self, tz, ambiguous, nonexistent)
+    286 @doc(DatetimeArray.tz_localize)
+    287 def tz_localize(
+    288     self,
+   (...)    291     nonexistent: TimeNonexistent = "raise",
+...
+   1098 dtype = tz_to_dtype(tz, unit=self.unit)
+
+File pandas/_libs/tslibs/tzconversion.pyx:371, in pandas._libs.tslibs.tzconversion.tz_localize_to_utc()
+
+AmbiguousTimeError: Cannot infer dst time from 2018-02-17 23:50:41, try using the 'ambiguous' argument
+```

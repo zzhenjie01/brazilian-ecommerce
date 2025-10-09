@@ -66,8 +66,8 @@ uv sync
 
 ## ClickHouse Docker Setup
 
-[ClickHouse Network Ports](https://clickhouse.com/docs/guides/sre/network-ports)
-[ClickHouse Official Image](https://hub.docker.com/_/clickhouse)
+- [ClickHouse Network Ports](https://clickhouse.com/docs/guides/sre/network-ports)
+- [ClickHouse Official Image](https://hub.docker.com/_/clickhouse)
 
 Make sure Docker Desktop is running in the background. Then `cd` into `docker/` folder and run the following command to start the docker container.
 
@@ -104,9 +104,13 @@ docker-compose logs -f        # View logs
 docker-compose restart        # Restart
 ```
 
+## PowerBI Desktop Setup
+
+To setup PowerBI Desktop, refer to the [ClickHouse Official Docs](https://clickhouse.com/docs/integrations/powerbi).
+
 ## To Do
 
 - Slowly Changing Dimensions
 - Materialization
 - Data Lineage & Documentation
-- Surrogate Key
+- ~~Surrogate Key~~
