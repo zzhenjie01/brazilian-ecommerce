@@ -104,9 +104,27 @@ docker-compose logs -f        # View logs
 docker-compose restart        # Restart
 ```
 
-## PowerBI Desktop Setup
+Default Credentials:
 
-To setup PowerBI Desktop, refer to the [ClickHouse Official Docs](https://clickhouse.com/docs/integrations/powerbi).
+- Username: `admin`
+- Password: `admin`
+
+## Grafana
+
+Once the container for Grafana is setup, we can access it at `http://localhost:3000`
+
+We can login with the following [default credentials](https://grafana.com/docs/grafana/latest/setup-grafana/sign-in-to-grafana/)
+
+- Username: `admin`
+- Password: `admin`
+
+Once logged in, we should install the plugin for ClickHouse. Go to "Connections" > "Add new connection". Then find ClickHouse and install it.
+
+## Ports Used
+
+- Grafana: `3000`
+- ClickHouse HTTP: `8123`
+- ClickHouse Client: `9000`
 
 ## To Do
 
