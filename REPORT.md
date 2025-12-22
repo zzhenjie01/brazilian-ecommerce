@@ -102,3 +102,39 @@ File pandas/_libs/tslibs/tzconversion.pyx:371, in pandas._libs.tslibs.tzconversi
 
 AmbiguousTimeError: Cannot infer dst time from 2018-02-17 23:50:41, try using the 'ambiguous' argument
 ```
+
+---
+
+The following error occured when I tried to create read a read only user using SQL commands via the command line. This happens because our default "admin" user does NOT have permission to create users. Clickhouse requires an explicit privilege `CREATE USER`. This is different from MySQL/Postgres where being "admin" is superuser.
+
+The "admin" user we are using is actually the default user customized since we specified `CLICKHOUSE_USER` and `CLICKHOUSE_PASSWORD` environment variables in our docker-compose file. This user has all rights and permissions by default but cannot use SQL commands for access control and user management.
+
+Refer to the [Official Docs](https://clickhouse.com/docs/operations/access-rights#access-control-usage) on the best practice. Refer to the [Enable SQL-driven access control and account management](https://clickhouse.com/docs/operations/access-rights#enabling-access-control) section on how to enable SQL user mode and create an admin user with full administrative rights.
+
+```text
+What is the following error when I tried to do the creation of user step?
+
+9d0a9f06c95b :) CREATE USER readonly IDENTIFIED WITH sha256_password BY 'readonly';
+
+CREATE USER readonly IDENTIFIED WITH sha256_password BY 'readonly'
+
+Query id: b932cfe5-07d7-4a2c-aa82-bb16bfd50c19
+
+
+Elapsed: 0.012 sec.
+
+Received exception from server (version 25.9.2):
+Code: 497. DB::Exception: Received from localhost:9000. DB::Exception: admin: Not enough privileges. To execute this query, it's necessary to have the grant CREATE USER ON readonly. (ACCESS_DENIED)
+```
+
+Modifying profile fails because while ClickHouse uses the `<constraints>` tag in the users.xml configuration file, the SQL syntax for managing settings profiles handles constraints (like `MIN`, `MAX`, or `CHANGEABLE_IN_READONLY`) directly within the MODIFY SETTINGS or ADD SETTINGS clause. Thus, the following will throw an error.
+
+```text
+12aebe0c0d62 :) ALTER SETTINGS PROFILE readonly_profile CONSTRAINTS max_execution_time CHANGEABLE_IN_READONLY;  
+
+Syntax error: failed at position 41 (CONSTRAINTS):
+
+ALTER SETTINGS PROFILE readonly_profile CONSTRAINTS max_execution_time CHANGEABLE_IN_READONLY;
+
+Expected one of: token, Comma, RENAME TO, AlterSettingsProfileElements, SETTINGS, SETTING, PROFILES, PROFILE, INHERIT, ADD, DROP, MODIFY, ON, IN, TO, ParallelWithClause, PARALLEL WITH, end of query
+```
