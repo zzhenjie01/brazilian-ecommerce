@@ -1,14 +1,22 @@
 import os
 import clickhouse_connect
+from dotenv import load_dotenv
 
 def main():
+    # Load environment variables from .env file
+    load_dotenv()
+
+    CLICKHOUSE_WRITE_USER = os.getenv("CLICKHOUSE_WRITE_USER")
+    CLICKHOUSE_WRITE_PASSWORD = os.getenv("CLICKHOUSE_WRITE_PASSWORD")
+    CLICKHOUSE_DB = os.getenv("CLICKHOUSE_DB")
+    
     # Connect to ClickHouse
     client = clickhouse_connect.get_client(
         host='localhost',
         port=8123,
-        username='admin',
-        password='admin',
-        database='brazilian_ecommerce'
+        username=CLICKHOUSE_WRITE_USER,
+        password=CLICKHOUSE_WRITE_PASSWORD,
+        database=CLICKHOUSE_DB
     )
 
     # Set current script as working directory
@@ -16,10 +24,11 @@ def main():
 
     # Paths to your Parquet files
     tables = {
-        "dim_customers": "../data/processed/dim_customers.parquet",
-        "dim_sellers": "../data/processed/dim_sellers.parquet",
-        "dim_products": "../data/processed/dim_products.parquet",
-        "fact_order_items": "../data/processed/fact_order_items.parquet"
+        "dim_dates": "../data/model/dim_dates.parquet",
+        "dim_customers": "../data/model/dim_customers.parquet",
+        "dim_sellers": "../data/model/dim_sellers.parquet",
+        "dim_products": "../data/model/dim_products.parquet",
+        "fact_order_items": "../data/model/fact_order_items.parquet"
     }
 
     try:
