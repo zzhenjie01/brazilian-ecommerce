@@ -1,0 +1,94 @@
+// Brazilian E-commerce Data Warehouse Schema
+
+Table dim_dates {
+  date_key UInt32 [pk, note: 'Surrogate key for dates']
+  date Date [not null, note: 'Actual date']
+  year UInt16 [not null]
+  quarter UInt8 [not null, note: '1-4']
+  month UInt8 [not null, note: '1-12']
+  month_name String [not null, note: 'January-December']
+  week_of_year UInt8 [not null, note: 'ISO week number']
+  day_of_month UInt8 [not null, note: '1-31']
+  day_of_week UInt8 [not null, note: '1=Monday, 7=Sunday']
+  day_name String [not null, note: 'Monday-Sunday']
+  is_weekend Bool [not null, note: 'True for Saturday/Sunday']
+}
+
+Table dim_customers {
+  customer_key UInt64 [pk, note: 'Surrogate key for customers']
+  customer_id String [not null, unique, note: 'Business key from source']
+  customer_unique_id String [not null, note: 'Unique customer identifier']
+  zip_code_prefix String [not null, note: 'First 5 digits of ZIP code']
+  city String [not null]
+  state String [not null, note: 'Brazilian state abbreviation']
+  lat Float64 [note: 'Latitude from geolocation']
+  lng Float64 [note: 'Longitude from geolocation']
+}
+
+Table dim_sellers {
+  seller_key UInt64 [pk, note: 'Surrogate key for sellers']
+  seller_id String [not null, unique, note: 'Business key from source']
+  zip_code_prefix String [not null, note: 'First 5 digits of ZIP code']
+  city String [not null]
+  state String [not null, note: 'Brazilian state abbreviation']
+  lat Float64 [note: 'Latitude from geolocation']
+  lng Float64 [note: 'Longitude from geolocation']
+}
+
+Table dim_products {
+  product_key UInt64 [pk, note: 'Surrogate key for products']
+  product_id String [not null, unique, note: 'Business key from source']
+  category_name String [note: 'Product category']
+  name_length UInt32 [note: 'Length of product name']
+  description_length UInt32 [note: 'Length of product description']
+  photos_quantity UInt16 [note: 'Number of product photos']
+  weight_g Float64 [note: 'Weight in grams']
+  length_cm Float64 [note: 'Length in centimeters']
+  height_cm Float64 [note: 'Height in centimeters']
+  width_cm Float64 [note: 'Width in centimeters']
+}
+
+Table fact_order_items {
+  // Degenerate dimensions
+  order_id String [pk, note: 'Order identifier from source system']
+  order_item_id UInt32 [pk, note: 'Line item number within order']
+  
+  // Foreign keys
+  customer_key UInt64 [not null, note: 'FK to dim_customers']
+  seller_key UInt64 [not null, note: 'FK to dim_sellers']
+  product_key UInt64 [not null, note: 'FK to dim_products']
+  purchase_date_key UInt32 [not null, note: 'FK to dim_dates']
+  
+  // Monetary measures
+  price Decimal(10, 2) [not null, note: 'Unit price of product']
+  freight_value Decimal(10, 2) [not null, note: 'Shipping cost for item']
+  item_total_value Decimal(10, 2) [not null, note: 'price + freight_value']
+  
+  // Order lifecycle timestamps
+  order_status String [not null, note: 'Current order status']
+  purchase_timestamp DateTime [not null, note: 'When order was placed (UTC)']
+  approved_timestamp DateTime [note: 'When order was approved (UTC)']
+  ship_out_deadline DateTime [note: 'Deadline to ship item (UTC)']
+  carrier_received_timestamp DateTime [note: 'When carrier received item (UTC)']
+  order_delivered_timestamp DateTime [note: 'When customer received order (UTC)']
+  estimated_delivery_date Date [note: 'Promised delivery date']
+  
+  // Data quality indicators
+  missing_required_timestamps Bool [not null, note: 'TRUE if required timestamps missing based on order_status']
+  status_aware_ordering Bool [not null, note: 'TRUE if timestamps are in chronological order based on order_status']
+  delivered_status_with_missing_timestamp Bool [not null, note: 'TRUE if order_status is delivered but delivered timestamp is missing']
+  delivered_timestamp_with_incorrect_status Bool [not null, note: 'TRUE if you have delivery timestamp but order_status not delivered']
+
+}
+
+// Relationships
+Ref: fact_order_items.customer_key > dim_customers.customer_key [delete: no action, update: no action]
+Ref: fact_order_items.seller_key > dim_sellers.seller_key [delete: no action, update: no action]
+Ref: fact_order_items.product_key > dim_products.product_key [delete: no action, update: no action]
+Ref: fact_order_items.purchase_date_key > dim_dates.date_key [delete: no action, update: no action]
+
+// Notes:
+// - Table engine: MergeTree for all tables
+// - Partition: fact_order_items partitioned by month (toYYYYMM(purchase_timestamp))
+// - Order by: See indexes above for sort order
+// - Nullable types converted to optional columns in DBML

@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS brazilian_ecommerce.fact_order_items
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMM(purchase_timestamp) -- partition by month for performance
-ORDER BY (purchase_date_key, customer_key, seller_key, product_key);
+ORDER BY (purchase_date_key, order_id, order_item_id);
 
 
 /*

@@ -1,60 +1,8 @@
-# brazilian-ecommerce
+# Data Analysis Project on Brazilian E-Commerce Dataset
 
-## Dataset
+## Project Overview
 
-The dataset used in this project is the Brazilian E-commerce Dataset by Olist on [Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce/data). The dataset has information of 100k orders from 2016 to 2018 made at multiple marketplaces in Brazil.
-
-## Dataset Context
-
-This dataset is provided by Olist, the largest department store in Brazilian marketplaces. Olist connects small businesses from all over Brazil to channels without hassle and with a single contract. Those merchants are able to sell their products through the Olist Store and ship them directly to the customers using Olist logistics partners.
-
-After a customer purchases the product from Olist Store a seller gets notified to fulfill that order. Once the customer receives the product, or the estimated delivery date is due, the customer gets a satisfaction survey by email where he can give a note for the purchase experience and write down some comments.
-
-## Raw Dataset Schema
-
-![brazilian_ecommerce_raw_schema](attachments/brazilian_ecommerce_raw_schema.png)
-
-### orders
-
-- "order_id","customer_id","order_status","order_purchase_timestamp","order_approved_at","order_delivered_carrier_date","order_delivered_customer_date","order_estimated_delivery_date"
-- `orders.order_id` relates to `order_reviews.order_id`
-- `orders.order_id` relates to `order_payments.order_id`
-- `orders.order_id` relates to `order_items.order_id`
-- `orders.customer_id` relates to `customers.customer_id`
-
-### order_reviews
-
-- "review_id","order_id","review_score","review_comment_title","review_comment_message","review_creation_date","review_answer_timestamp"
-
-### order_payments
-
-- "order_id","payment_sequential","payment_type","payment_installments","payment_value"
-
-### order_items
-
-- "order_id","order_item_id","product_id","seller_id","shipping_limit_date","price","freight_value"
-- `order_items.product_id` relates to `products.product_id`
-- `order_items.seller_id` relates to `sellers.seller_id`
-
-### products
-
-- "product_id","product_category_name","product_name_lenght","product_description_lenght","product_photos_qty","product_weight_g","product_length_cm","product_height_cm","product_width_cm"
-
-### sellers
-
-- "seller_id","seller_zip_code_prefix","seller_city","seller_state"
-- `sellers.seller_zip_code_prefix` relates to `geolocation.geolocation_zip_code_prefix`
-
-### customers
-
-- "customer_id","customer_unique_id","customer_zip_code_prefix","customer_city","customer_state"
-- `customers.customer_zip_code_prefix` relates to `geolocation.geolocation_zip_code_prefix`
-
-### geolocation
-
-- "geolocation_zip_code_prefix","geolocation_lat","geolocation_lng","geolocation_city","geolocation_state"
-
-## Python Setup
+## 🐍 Python Environment Setup
 
 ```bash
 git clone https://github.com/zzhenjie01/brazilian-ecommerce.git
@@ -64,50 +12,67 @@ git clone https://github.com/zzhenjie01/brazilian-ecommerce.git
 uv sync
 ```
 
-## ClickHouse Docker Setup
+## 🐳 Docker Setup
 
 - [ClickHouse Network Ports](https://clickhouse.com/docs/guides/sre/network-ports)
 - [ClickHouse Official Image](https://hub.docker.com/_/clickhouse)
 
-Make sure Docker Desktop is running in the background. Then `cd` into `docker/` folder and run the following command to start the docker container.
+Make sure Docker Desktop is running in the background. Then `cd` into `docker/` folder.
+
+```bash
+cd docker
+```
+
+Then, run the following command to start the ClickHouse and Grafana Docker containers.
 
 ```bash
 docker-compose --project-name brazilian-ecommerce up -d
 ```
 
-We can then use tools like DbVisualizer to connect to the Dockerized ClickHouse container at `http://localhost:8132`
-
-We can run `src/clickhouse_ddl.sql` in DbVisualizer connected to ClickHouse to create the fact and dimension tables.
-
-To insert the fact and dimension tables into ClickHouse, we can either doing via command line or run a python script. In general, it is better to run python script as it allows automation.
-
-Make sure you are at the project root directory and run the following commands.
+**Useful Docker commands:**
 
 ```bash
-docker exec -i clickhouse clickhouse-client --query="INSERT INTO ecommerce.dim_customers FORMAT CSV" < data/processed/dim_customers.csv
-docker exec -i clickhouse clickhouse-client --query="INSERT INTO ecommerce.dim_sellers FORMAT CSV" < data/processed/dim_sellers.csv
-docker exec -i clickhouse clickhouse-client --query="INSERT INTO ecommerce.dim_products FORMAT CSV" < data/processed/dim_products.csv
-docker exec -i clickhouse clickhouse-client --query="INSERT INTO ecommerce.fact_order_items FORMAT CSV" < data/processed/fact_order_items.csv
-```
-
-To use run the python script, 
-
-To stop ClickHouse, run the following command in terminal.
-
-```bash
-docker-compose stop
-```
-
-```bash
+docker-compose stop           # Stop
 docker-compose down           # Stop and remove
 docker-compose logs -f        # View logs
 docker-compose restart        # Restart
 ```
 
+We can then use tools like DbVisualizer to connect to the Dockerized ClickHouse container at `http://localhost:8132`.
+
 Default Credentials:
 
 - Username: `default_write`
 - Password: `default_write`
+
+Be sure to set the display timezone to UTC-3 Brazil Standard Time to prevent confusion. In DbVisualzier it is "Tools" > "Tool Properties".
+
+![dbvisualizer_1](./attachments/dbvisualizer_1.png)
+![dbvisualizer_2](./attachments/dbvisualizer_2.png)
+
+## ⭐ Create Tables
+
+We can run `src/clickhouse_ddl.sql` in DbVisualizer connected to ClickHouse to create the fact and dimension tables definitions.
+
+![dbvisualizer_3](./attachments/dbvisualizer_1.png)
+![dbvisualizer_4](./attachments/dbvisualizer_2.png)
+![dbvisualizer_5](./attachments/dbvisualizer_3.png)
+
+## 💽 Data Ingestion
+
+To insert the fact and dimension tables into ClickHouse, run the Python script `src/clickhouse_insert.py`. In general, it is better to run python script as it allows automation.
+
+Go to the project root directory and run the following
+
+```bash
+python src/clickhouse_insert.py
+```
+
+Using the following commands to insert will result in error because the parquet files lives locally. When the clickhouse client in the Docker container tries to find the file on its own file system, it won't be able to find it.
+
+```bash
+docker exec -i clickhouse clickhouse-client --query="INSERT INTO brazilian_ecommerce.fact_order_items FORMAT Parquet" < data/model/fact_order_items.parquet
+```
 
 ### Create an admin user
 
@@ -256,15 +221,8 @@ Update credentials
 
 Once logged in, we should install the plugin for ClickHouse. Go to "Connections" > "Add new connection". Then find ClickHouse and install it.
 
-## Ports Used
+## 🔌 Ports Used
 
 - Grafana: `3000`
 - ClickHouse HTTP: `8123`
 - ClickHouse Client: `9000`
-
-## To Do
-
-- Slowly Changing Dimensions
-- Materialization
-- Data Lineage & Documentation
-- ~~Surrogate Key~~

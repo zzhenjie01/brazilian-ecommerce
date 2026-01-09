@@ -1,140 +1,781 @@
 # Data Analysis Project on Brazilian E-Commerce Dataset
 
-## Exploratory Data Analysis (EDA)
+## Objective
 
-### `orders` table
+**Overall Objective:** To simulate data analyst end-to-end workflow in the context of ecommerce setting using Brazilian E-commerce dataset.
 
-### `order_reviews` table
+**Learning Objectives:**
 
-`review_id` and `order_id` on their own are not unique. `order_id` might not be unique because a single order can have multiple products and each of these products have their own reviews, leading to `order_id` being duplicated in the table. Also, a particular order can have a follow-up review. `review_id` may not be unique i.e. a particular `review_id` may be reused for differnt `order_id`. The reason is unknown but it could be due to efficiency when generating the ids; we only need to ensure that the `review_id` generated is unique within a particular order rather than globally. Thus, `(review_id, order_id)` is the composite primary key.
+- Data Modelling
+- Data Layering (Data Warehouse, Data Mart)
 
-### `order_payments` table
+## Dataset
 
-`order_id` and `payment_sequential` on their own are not unique because the payment for a single order can be broken down into multiple installments. Thus, the same `order_id` can be present multiple times. However, each installment payment for an order should be unique which makes `(order_id, payment_sequential)` the composite primary key.
+The dataset used in this project is the Brazilian E-commerce Dataset by Olist on [Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce/data). The dataset has information of 100k orders from 2016 to 2018 made at multiple marketplaces in Brazil.
 
-### `products` table
+### Dataset Context
 
-We note that `product_name_lenght` and `product_description_lenght` columns are misspelled which we need to do later when doing data modelling. The `product_category_name` is in Portuguese but a Portuguese-English mapping table `product_category_name_translation` is provided.
+This dataset is provided by Olist, the largest department store in Brazilian marketplaces. Olist connects small businesses from all over Brazil to channels without hassle and with a single contract. Those merchants are able to sell their products through the Olist Store and ship them directly to the customers using Olist logistics partners.
 
-### `customers` table
+After a customer purchases the product from Olist Store a seller gets notified to fulfill that order. Once the customer receives the product, or the estimated delivery date is due, the customer gets a satisfaction survey by email where he can give a note for the purchase experience and write down some comments.
 
-`customer_id` is a temporary, unique identifier assigned to a customer for each specific order they place. Each `customer_id` appears only once in the system and is unique to a single order. The purpose is to link a specific order to a customer in the `orders` table.
-`customer_unique_id` is an anonymized, persistent identifier for a single customer. This ID is the same for one customer, even if they place multiple orders. The purpose is to identify and analyze the behavior of individual customers, such as tracking repeat purchases. This explains why `customer_id` is unique in this table but `customer_unique_id` is not as a single customer could have placed multiple orders.
+## Raw Dataset Schema
 
-## Extract, Transform, Load (ETL)
+![brazilian_ecommerce_raw_schema](attachments/brazilian_ecommerce_raw_schema.png)
 
-We build dimension tables first because fact tables contain foreign keys that reference the primary keys of dimension tables, meaning the dimensional data must exist and be loaded first to ensure the fact table can properly link to its descriptive context.
+### `orders`
 
-### Building Fact Table
+- `order_id`
+- `customer_id`
+- `order_status`
+- `order_purchase_timestamp`
+- `order_approved_at`
+- `order_delivered_carrier_date`
+- `order_delivered_customer_date`
+- `order_estimated_delivery_date`
+- `orders.customer_id` references `customers.customer_id`
 
-For `order_payments` table, we did not convert it to a dimension table because it contains information on the installment payments per order which we consider it to be a measure. Thus, we aggregated all the installment payments per `order_id` and kept only the `order_id`, `total_payment_value` and `payment_installments`. Thereafter, we will merge it into our `fact_order_items` table.
+### `order_reviews`
 
-For `order_reviews` table, we also did not convert it to a dimension table because it contains review scores which we consider it to be a measure. However, a particular order can have multiple reviews so we need to take average of all the scores. However, an order can also have a follow-up review so we need to only consider the latest set of review scores before taking average. We are not interested in the text reviews since we are not doing sentiment analysis. Thus, we will only keep `order_id` and `average_review_score` before merging into our `fact_order_items` table.
+- `review_id`
+- `order_id`
+- `review_score`
+- `review_comment_title`
+- `review_comment_message`
+- `review_creation_date`
+- `review_answer_timestamp`
+- `order_reviews.order_id` references `orders.order_id`
 
-There is a missing payment in `order_payments` based on `order_id` that is not present in `order_items`. Also we note that there are some null values in some datetime columns and also payment value columns in the fact table. One explanation is that some of these records are orders that are just placed and are either:
+### `order_payments`
 
-1) waiting for customer payment (missing `total_payment_value` and `payment_installments`)
-2) or waiting for order to be approved by platform (missing `order_approved_at`)
-3) or waiting for seller's packed parcel to arrive at logistics partner warehouse (missing `order_delivered_carrier_date`)
-4) or waiting for customer to receive the parcel (missing `order_delivered_customer_date`)
+- `order_id`
+- `payment_sequential`
+- `payment_type`
+- `payment_installments`
+- `payment_value`
+- `order_payments.order_id` references `orders.order_id`
 
-We may not want to fill these missing values with a value because substituting a zero for missing price or payment values may inaccurately skew aggregate calculations such as `AVG()`.
+### `order_items`
 
-We casted columns in Pandas to match the datatype that is required by the ClickHouse schema. Also, we note that `int32` is different from `Int32`. The former is NumPy's `int32` data type which cannot hold nulls while the latter is Pandas' dedicated Int32Dtype ExtensionDtype which is a newer, nullable integer data type introduced in Pandas to address the issue of NaN forcing integer columns to become floats. For `float64` columns we don't have to cast anything as `float64` can store `NaN`.
+- `order_id`
+- `order_item_id`
+- `product_id`
+- `seller_id`
+- `shipping_limit_date`
+- `price`
+- `freight_value`
+- `order_items.order_id` references `orders.order_id`
+- `order_items.product_id` references `products.product_id`
+- `order_items.seller_id` references `sellers.seller_id`
 
-## ClickHouse
+### `products`
 
-Primary keys in ClickHouse define the sort order of data parts on disk and create a sparse primary index. This index is used to efficiently locate blocks of rows for queries that filter on the primary key columns. However, unlike traditional relational databases, a ClickHouse primary key does not enforce uniqueness. Duplicate values are allowed in primary key columns. The primary key is crucial for query performance, especially for range queries and filters on the primary key columns.
+- `product_id`
+- `product_category_name`
+- `product_name_lenght`
+- `product_description_lenght`
+- `product_photos_qty`
+- `product_weight_g`
+- `product_length_cm`
+- `product_height_cm`
+- `product_width_cm`
 
-[Official ClickHouse Docs](https://clickhouse.com/docs/best-practices/choosing-a-primary-key)
+### `sellers`
 
-ClickHouse explicitly does not support foreign key constraints. This means there are no mechanisms to enforce referential integrity between tables at the database level. Thus, when working with ClickHouse, we typically manage relationships between tables through application-level logic or by designing denormalized tables to minimize the need for joins.
+- `seller_id`
+- `seller_zip_code_prefix`
+- `seller_city`
+- `seller_state`
+- `sellers.seller_zip_code_prefix` references `geolocation.geolocation_zip_code_prefix`
 
-ClickHouse does not support transactional semantics `BEGIN`, `COMMIT`, `ROLLBACK` in the same way that SQL databases like PostgreSQL or MySQL do. At the time of writing, the support is only in experimental stage. ClickHouse inserts are atomic per query — each `INSERT` is its own “transaction.” So, if one table fails to insert, the others will not be rolled back automatically, but the failed one simply won’t insert anything.
+### `customers`
 
-### DDL
+- `customer_id`
+- `customer_unique_id`
+- `customer_zip_code_prefix`
+- `customer_city`
+- `customer_state`
+- `customers.customer_zip_code_prefix` references `geolocation.geolocation_zip_code_prefix`
 
-Dimension Tables:
+### `geolocation`
 
-- For the keys, we use `UInt64` instead of `UInt32` because we forsee that in the future, there may be many more records.
-- For lattitudes and longitudes, we chose `Float64` as it is more precise than `Float32` which may matter when doing geospatial visualization on only a single country.
+- `geolocation_zip_code_prefix`
+- `geolocation_lat`
+- `geolocation_lng`
+- `geolocation_city`
+- `geolocation_state`
 
-Fact Table:
+## 1 Exploratory Data Analysis (EDA)
 
-- Used `Datetime` instead of `Datetime64` as the timestamp data is only up till precision level of seconds instead of milliseconds or nanoseconds.
-- Set `DateTime` to be Sao Paulo although the best practice is to store in UTC time in database which requires converstion during ETL and conversion in the application layer. This introduces overhead.
-- For monetary quantities like `price`, we use `Decimal(15, 2)` datatype since floats are inaccurate in representing money. We assume that the largest money we are going to handle is 1 tillion which has 15 digits including the 2 decimal digits.
+Checks the following:
 
-## Errors
+- Table shape/dimensions
+- Duplicated rows
+- Missing/null values
+- Column data types
+- Descriptive statistics (min, max values)
+- Numeric columns >= 0 (based on business logic)
+- Categorical column values
+- Date/timestamp column ranges
+- Column naming conventions
 
-Occured when I try to convert the timestamp in string to actual datetime datatype localized to Sao Paulo time. This is due to Brazil using Daylight Savings Time (DST) for certain periods of the year.
+### 1.1`orders` table
+
+- The dates and timestamp columns are all read in by Pandas as string as indicated by the `object` data type. This means that if we want to do comparison or manipulation of time, we should **cast it to Pandas datetime**.
+- There are also missing values in `order_approved_at`, `order_delivered_carrier_date`, and `order_delivered_customer_date` columns which is not surprising given that there might be orders that are not delivered to logistics partner or to customer at the point of creation of this dataset.
+- Note that the `order_delivered_carrier_date` is the timestamp where the order/parcel reaches the logistics partner.
+- The **column names are not consistent in naming** where some timestamp columns are called date.
+- Notice, how the columns that are actual dates (e.g. `order_estimated_delivery_date`) has `00:00:00` as the time in the timestamp.
+
+**Typical Lifecycle of Ecommerce Order:**
 
 ```text
----------------------------------------------------------------------------
-AmbiguousTimeError                        Traceback (most recent call last)
-Cell In[14], line 14
-     12     fact_order_items[col] = pd.to_datetime(fact_order_items[col], errors="coerce") # coerce errors/nuls to NaT
-     13     # Assign Sao Paulo timezone without shifting
----> 14     fact_order_items[col] = fact_order_items[col].dt.tz_localize("America/Sao_Paulo")
-     16 fact_order_items["payment_installments"] = fact_order_items["payment_installments"].astype("UInt32")
-     17 fact_order_items["average_review_score"] = fact_order_items["average_review_score"].astype("float32")
+created -> approved -> invoiced -> processing -> shipped -> delivered
+```
 
-File c:\Users\zzhen\projects\brazilian-ecommerce\.venv\Lib\site-packages\pandas\core\accessor.py:112, in PandasDelegate._add_delegate_accessors.<locals>._create_delegator_method.<locals>.f(self, *args, **kwargs)
-    111 def f(self, *args, **kwargs):
---> 112     return self._delegate_method(name, *args, **kwargs)
+**Order Status Column:**
 
-File c:\Users\zzhen\projects\brazilian-ecommerce\.venv\Lib\site-packages\pandas\core\indexes\accessors.py:132, in Properties._delegate_method(self, name, *args, **kwargs)
-    129 values = self._get_values()
-    131 method = getattr(values, name)
---> 132 result = method(*args, **kwargs)
-    134 if not is_list_like(result):
-    135     return result
+- created: The order has been placed but not yet processed.
+- approved: Payment for the order has been approved.
+- invoiced: An invoice has been generated for the order.
+- processing: The order is being prepared for shipment, after payment approval.
+- shipped: The order has been handed over to the shipping carrier.
+- delivered: The order has successfully reached the customer.
+- canceled: The order was terminated by the customer or seller.
+- unavailable: The product became unavailable, preventing sale completion.
 
-File c:\Users\zzhen\projects\brazilian-ecommerce\.venv\Lib\site-packages\pandas\core\indexes\datetimes.py:293, in DatetimeIndex.tz_localize(self, tz, ambiguous, nonexistent)
-    286 @doc(DatetimeArray.tz_localize)
-    287 def tz_localize(
-    288     self,
-   (...)    291     nonexistent: TimeNonexistent = "raise",
-...
-   1098 dtype = tz_to_dtype(tz, unit=self.unit)
+### 1.2 `order_reviews` table
 
-File pandas/_libs/tslibs/tzconversion.pyx:371, in pandas._libs.tslibs.tzconversion.tz_localize_to_utc()
+- There are reviews with missing titles and review messages. This is acceptable because some buyers only want to rate.
+- The review ratings ranges from 1 to 5 inclusive, which is a typical range for rating of products in ecommerce.
+- The review ratings are mainly clustered around 1, 4, 5 which makes sense since most customers either like a particular product very much or hate it very much, perhaps due to it not working as intended or defects.
+- There are timestamp and date columns which means that in our ETL, we need to **cast them to datetime** since they are currently interpreted as string by Pandas.
 
+### 1.3 `order_payments` table
+
+- There are more rows in `order_payments` table compared to `orders` table. The reason for this is because a single order can be paid over multiple installments.
+- The numeric columns are all greater than 0 which means the data is valid.
+- The `payment_sequential` tells us which installment is the current payment making and the `payment_installments` is the total number of installments for a particular order.
+- Customers who pay off the order in one shot will have `payment_sequential = 1` and `payment_installments = 0` which is the minimum value for both columns.
+- `max(payment_sequential)` > `max(payment_installments)` which means that there are customers who did not manage to pay finish by the end of the last installment, leading them to take more installments.
+- `min(payment_value)` = 0 and this could be due to the product in the order being a free gift or the customer use some voucher to offset the payment value.
+- There are 3 orders whose payment type is not defined. One possible reason could be a new payment method that is not in the list of payment (software/backend bug). We would not drop this during ETL as it would lead to wrong sales and payment figures.
+- In this table, we have columns that deals with money, thus we need their data type to be precise `float64` is unsuitable. We need it to be `Decimal`.
+
+### 1.4 `order_items` table
+
+- The `shipping_limit_date` here is just a deadline for sellers to hand over an order to the logistics partner. This can be **compared** with `order_delivered_carrier_date` in the `orders` table to **track if sellers meet their fulfillment obligations**.
+
+### 1.5 `products` table
+
+- `product_name_lenght` and `product_description_lenght` columns have typo in their column name and needs to be **renamed**.
+- There are products without category names, descriptions and physical measurements. These depends on whether the ecommerce platform wishes to enforce them to be compulsory when the sellers list their products.
+- The product category names are also in Portuguese which means we have to **map it to English** using the `product_category_name_translation.csv` later.
+
+### 1.6 `sellers` table
+
+- The `seller_zip_code_prefix` has some values which are 4 digits and some 5 digits. This happens because the state of São Paulo, for instance, uses prefixes starting with `0` (e.g., `01001`). If we read `01001` as a number, the leading zero is dropped, and it becomes `1001` (4 digits). This is further confirmed when we check the data type for the column is integer. So, when **reading zip code columns, need interpret it as a string**.
+
+### 1.7 `customers` table
+
+- It has two id columns: `customer_id` and `customer_unique_id`.
+- `customer_id` is the **primary key** for this table not `customer_unique_id`
+- `customer_id` is "the event" which linked to a specific order in the `orders` table. Think of it as the transaction token or session id for a specific purchase.
+- `customer_unique_id` is "the account" that represents the actual person or human.
+- If you made 3 separate purchases, you would have 3 duplicate `customer_unique_id` but 3 distinct `customer_id`
+- Why structure it this way? This is to address the scenario where you use the same account to order but sent the order to two different address. If we only have one row for the customer (the human), updating address for Order 2 might accidentally change the record for Order 1. Thus, use `customer_id` (with its own address data) for every single order, and use `customer_unique_id` to trace them back to the same account.
+
+### 1.8 `geolocation` table
+
+- The table has 261,831 duplicated rows. This means that we need to **remove duplicates** in our ETL later.
+- We are told that a particular zip code prefix should correspond to a city within a state. There may be many records for a particular prefix. This is because:
+  - Spelling variations in city names such as `sao paulo`, `são paulo`, `saopaulo`, and `s. paulo` all refers to the same city. but will appear as 4 different records. Thus, we need to **standardize the spelling of city names**.
+  - Even if the name is standardized, there might be multiple latitude and longitudes for a single city as the cities cover a wide area instead of being a single precise points on a map. Thus, we can take the mean of latitude and longitude to get a centroid coordinates for the city.
+
+## 2 Data Validation
+
+Checks the following:
+
+- Uniqueness of keys
+- Business logic
+- Inconsistencies of city names convention
+- Time zone of timestamps
+- Referential integrity
+
+### 2.1 `orders` table
+
+- `order_id` is the primary key for this table
+
+There are 4 business checks that needs to be done for this table:
+
+1. Based on the `order_status` column, certain timestamps need to be present. For example, if an order is marked as 'delivered', then all 4 timestamps should be present. See table below. (22 violations)
+    - For example, `order_status = 'shipped'` but `order_delivered_carrier_date` is null.
+    - In distributed systems, the 'Status' of an order and the 'Timestamp' of an event are often updated by different triggers. An order status might flip to 'shipped' based on a warehouse worker scanning a barcode (an internal event), but the `order_delivered_carrier_date` might depend on an API callback from the logistics partner (an external event). If the API call fails or times out, the status remains 'shipped' but the timestamp never arrives.
+2. Based on the `order_status`, we need to ensure proper chronological ordering of all the timestamps it have. (1405 violations)
+    - For example, `order_delivered_customer_date` < `order_approved_at`
+    - **Asynchronicity**: The payment system might approve an order instantly, but due to a queue lag, the 'approved' timestamp is written to the database hours later, potentially after the warehouse has already packed it and shipped to the logistics partner.
+    - **Human-in-the-Loop**: A customer service agent might manually force an order to 'Delivered' status to resolve a complaint, bypassing the logical checks and potentially inserting a timestamp that predates the approval to 'fix' a record.
+3. Orders mark as 'delivered' should have an `order_delivered_customer_date`. (8 violations)
+    - The system might have a rule that auto-closes orders as 'delivered' after 30 days if no complaint is filed, even if the carrier integration never sent a final timestamp."
+4. Orders that have `order_delivered_customer_date` needs to have `order_status` marked as 'delivered'. (6 violations)
+    - The system received the 'Delivered' event (hence the timestamp exists), but the database transaction that updates the `status` column failed or was rolled back.
+
+| order_status | purchase | approved | carrier | delivered |
+| ------------ | -------- | -------- | ------- | --------- |
+| created      | ✅       | ❌       | ❌      | ❌        |
+| approved     | ✅       | ✅       | ❌      | ❌        |
+| invoiced     | ✅       | ✅       | ❌      | ❌        |
+| processing   | ✅       | ✅       | ❌      | ❌        |
+| shipped      | ✅       | ✅       | ✅      | ❌        |
+| delivered    | ✅       | ✅       | ✅      | ✅        |
+| canceled     | ✅       | ❌/✅    | ❌      | ❌        |
+| unavailable  | ✅       | ❌/✅    | ❌      | ❌        |
+
+```text
+order_purchase_timestamp
+≤ order_approved_at
+≤ order_delivered_carrier_date
+≤ order_delivered_customer_date
+```
+
+| Issue                                    | Drop? | Use for revenue? | Use for SLA? |
+| ---------------------------------------- | ----- | ---------------- | ------------ |
+| Missing delivery timestamp but delivered | ❌    | ✅               | ❌           |
+| Shipped but has delivered timestamp      | ❌    | ✅               | ❌           |
+| Timestamp ordering violation             | ❌    | ✅               | ❌           |
+| Order Status canceled / unavailable      | ❌    | ❌               | ❌           |
+
+#### Solution/Fix
+
+- We should not blindly drop these records as they still contribute to revenue figures and affects customer counts too.
+- Since they are date/timestamp columns, we can not impute it with values such as 0 or mean or median. We cannot interpolate as well.
+- We can safely leave these invalid records as it is and missing values as NULL because when we use SQL aggregate functions such as `COUNT()` or `AVG()` in Data Warehouse, NULLs would be excluded from computation.
+- However, for certain metrics such as delivery SLA or KPI, having Rule 3 & 4 violated may not be acceptable and thus should be excluded from calculation.
+- For each of the 4 rules, have a flag column in the table that indicates if the rule is violated.
+- For rule 3 and 4, we can **combine them into a single column** since if either 3 or 4 is violated, we cannot use it for delivery KPI metrics.
+
+### 2.2 `order_reviews` table
+
+- `review_id` and `order_id` and their own are not unique. However, `(review_id, order_id)` composite key is unique.
+- `review_id` is not unique because it is possible for a review to be applied to multiple orders. The ecommerce platform will send a "Please review your purchase" email, which will allow the user to write one single comment that applies to all those orders.
+- `order_id` is not unique because a customer might review an order but then change their mind a few weeks later, thus updating the review for the order which generates a new record.
+- Depending on business requirements and how we want to model the data for the Data Warehouse, we can **choose to keep the latest review or the average review score**
+
+### 2.3 `order_payments` table
+
+- `order_id` is not unique because a particular order can be broken down into multiple installments
+- Thus, `(order_id, payment_sequential)` composite key is unique.
+
+### 2.4 `order_items` table
+
+- `order_id` is not unique because a particular order can have multiple items from the same shop or different shop.
+- `(order_id, order_item_id)` is unique because `order_item_id` is a secondary key within a particular order that tells us which product from which seller.
+
+### 2.5 `products` table
+
+- `product_id` is the unique identifier for this table
+
+### 2.6 `sellers` table
+
+- `seller_id` is the unique identifier for this table
+
+### 2.7 `customers` table
+
+- `customer_id` is the unique identifier for this table. Not `customer_unique_id`.
+- The reason is explained in the previous section.
+
+### 2.8 `geolocation` table
+
+- There are inconsistencies in the naming of the same city for example, `sao paulo` and `são paulo` refers to the same city.
+- We should **group by the zip code prefix and take the mean of the latitude and longitude**.
+
+### 2.9 Check Timezone
+
+- All the timestamps provided are missing timezone information and the data source does not tell us whether the timestamps are UTC or Brazilian Standard Time (UTC-3). So we have to see the order purchase timestamp distribution to infer. We plot two distributions.
+- Plot 1 is assuming the time is in Brazilian local time (UTC-3) so no adjustments are made. Plot 2 is assuming the time is in UTC and thus have to -3 hours to make it local time.
+- The distribution plot tells us that the **timestamp is in local time (UTC-3)** as the lowest number of orders occurred at 4 - 5 am which is in-line with typical ecommerce order volume pattern.
+- 4 - 5 am is the point of lowest order volume because most people are asleep. Midnight is not the lowest point because there might be midnight flash sale and most people are still using their phone rather than sleeping.
+
+#### Daylight Savings Time (DST)
+
+- Interestingly, before 2019, Brazil observe Daylight Saving Time (DST) in the months of the year (Oct - Feb) where timing will shift by an hour. Time changes were almost always done at midnight. The time was advanced from 00:00 to 01:00 on the DST starting date and reduced from 00:00 on the ending date to 23:00 of the previous day.
+- Our dataset is from 2016 - 2018 which means the timestamps might observe DST. However, when we try to localize the timestamps to `"America/Sao_Paulo"`, we got the following error.
+
+```text
 AmbiguousTimeError: Cannot infer dst time from 2018-02-17 23:50:41, try using the 'ambiguous' argument
 ```
 
----
+- On certain dates (usually in February), the clock would **move backward by one hour**, so some local times (e.g. `2018-02-17 23:50:41`) actually occurred **twice** (once in DST and once in standard time).
+- When pandas calls `.tz_localize("America/Sao_Paulo")`, it encounters these duplicated hours and thus raises the error.
+- We can see how DST introduces additional complexity and for the purpose of this project, we will assume that DST is not observed and only consider whether the timestamps are UTC or UTC-3.
 
-The following error occured when I tried to create read a read only user using SQL commands via the command line. This happens because our default "admin" user does NOT have permission to create users. Clickhouse requires an explicit privilege `CREATE USER`. This is different from MySQL/Postgres where being "admin" is superuser.
+### 2.10 Check Referential Integrity
 
-The "admin" user we are using is actually the default user customized since we specified `CLICKHOUSE_USER` and `CLICKHOUSE_PASSWORD` environment variables in our docker-compose file. This user has all rights and permissions by default but cannot use SQL commands for access control and user management.
+- All table passed referential integrity checks except the `sellers` and `customers` table.
+- 7 sellers with zip code prefixes that does not exist in the `geolocation` table.
+- 278 customers with zip code prefixes that does not exist in the `geolocation` table.
+- A possible reason may be customer has saved an invalid address zip code when adding delivery address to their account.
+- Another reason might be new residential areas in Brazil get assigned new zip codes but the `geolocation` table is an outdated snapshot.
+- We will not remove these customers or sellers as other tables reference them. Instead when joining `geolocation` table to it, the latitudes and longitudes will be NULL.
 
-Refer to the [Official Docs](https://clickhouse.com/docs/operations/access-rights#access-control-usage) on the best practice. Refer to the [Enable SQL-driven access control and account management](https://clickhouse.com/docs/operations/access-rights#enabling-access-control) section on how to enable SQL user mode and create an admin user with full administrative rights.
+## 3 Data Transformation (Cleaning)
 
-```text
-What is the following error when I tried to do the creation of user step?
+Performs the following:
 
-9d0a9f06c95b :) CREATE USER readonly IDENTIFIED WITH sha256_password BY 'readonly';
+- Dropping duplicate rows
+- Conversion of timestamps into UTC
+- Conversion of date columns into date
+- Create Boolean flag columns to indicate rows that violate business logic
+- Renamed column names for clarity
+- Standardized accented city names into standard English names
 
-CREATE USER readonly IDENTIFIED WITH sha256_password BY 'readonly'
+After transformation is done, each of the tables are saved to local staging area (`REPO_ROOT/data/staging`) and the format is `.parquet`. Parquet rather than CSV is used to ensure that data types are preserved when saving a table.
 
-Query id: b932cfe5-07d7-4a2c-aa82-bb16bfd50c19
+### 3.1 `orders` table
 
+- Convert timestamp columns from strings into datetime -> interpret it as UTC-3 -> convert to UTC. This is done because after data modelling, we are going to ingest the data into Data Warehouse whose standard practice is to store timestamps as UTC to avoid confusion or ambiguity. Thus, we need to convert.
+- Convert date columns from string timestamp into date object
+- Created 4 Boolean flag columns to handle timestamps that failed business checks
+  - `missing_required_timestamps`: based on `order_status` column, certain timestamps are missing.
+  - `status_aware_ordering`: based on `order_status` column, the different timestamp columns should respect the chronological order of an ecommerce order lifecycle.
+  - `delivered_status_with_missing_timestamp`: orders where it is marked as delivered but does not have a delivered timestamp
+  - `delivered_timestamp_with_incorrect_status`: orders where there is delivery timestamp but order status is not marked as delivered.
+- Renamed the column names for clarity. For example `order_delivered_carrier_date` is the timestamp where the parcel is received at the logistics partner so we renamed it to `carrier_recieved_timestamp`
 
-Elapsed: 0.012 sec.
+### 3.2 `order_reviews` table
 
-Received exception from server (version 25.9.2):
-Code: 497. DB::Exception: Received from localhost:9000. DB::Exception: admin: Not enough privileges. To execute this query, it's necessary to have the grant CREATE USER ON readonly. (ACCESS_DENIED)
+- Convert timestamp columns from strings into datetime -> interpret it as UTC-3 -> convert to UTC
+- Convert date columns from string timestamp into date object
+
+### 3.3 `order_payments` table
+
+- Nothing to change or modify
+
+### 3.4 `order_items` table
+
+- Convert timestamp columns from strings into datetime -> interpret it as UTC-3 -> convert to UTC
+- Rename `shipping_limit_date` column to `ship_out_deadline` because it is the timestamp deadline that a particular order item needs to be shipped out i.e. handed over and received by the logistics partner.
+
+### 3.5 `products` table
+
+- Columns are renamed for clarity. Specifically the prefix "products" in the column names are removed because we know all these attributes belong only to the `products` table. There is no ambiguity.
+
+### 3.6 `sellers` table
+
+- Seller's zip code prefix is converted to string and then padded with 0's from the left to make it 5 digits.
+- Accented characters in city name are replaced with standard English alphabets.
+- Columns are renamed for clarity
+
+### 3.7 `customers` table
+
+- Customer's zip code prefix is converted to string and then padded with 0's from the left to make it 5 digits.
+- Accented characters in city name are replaced with standard English alphabets.
+- Columns are renamed for clarity
+
+### 3.8 `geolocation` table
+
+- Row duplicates are dropped
+- Zip code prefix is converted to string and then padded with 0's from the left to make it 5 digits.
+- Accented characters in city name are replaced with standard English alphabets.
+- Group by `("geolocation_zip_code_prefix", "geolocation_city", "geolocation_state")` and the the mean for both latitude and longitude.
+
+### 3.9 Cleaned Tables Schema
+
+![cleaned_tables_schema](./attachments/cleaned_tables_schema.png)
+
+**Note:**
+
+- `name_length`, `description_length`, `photos_quantity` are in `float64` because they contain NULL values. So pandas auto-upcasts to `float64` so that can mark it using NaNs. Thus, we need to cast them to appropriate integer types before ingesting into ClickHouse.
+
+## 4 Data Modeling
+
+This section aims to do data modeling on the clean data. Specifically, we will be doing dimensional modeling to model the data into star schema. Star schema consist of a central fact table surrounded by a few dimension tables. The fact table contains events and measures (e.g. price, freight_value) and the dimension tables contain context (e.g. product name, product dimensions). They are often related to each other by surrogate keys rather than the business natural keys.
+
+- Fact table stores foreign keys that references dimension tables.
+- Dimension tables carry descriptive attributes.
+
+**Why star schema?**
+
+- Star schema means that the central fact table is at most one join away from the dimension tables. This means we don't use excessive joins which improves analytical performance.
+- Snowflake schema is an extension of star schema by normalizing some dimension tables. This reduces data redundancy at the cost of analytical performance.
+
+**Why Surrogate Keys?**
+
+- Decouple warehouse from source system IDs (business natural keys)
+- Smaller integers → faster joins
+- Enables future SCD Type-2 if needed
+
+- Add **integer surrogate keys** to each dimension
+- Keep **natural keys** as attributes
+- Store **surrogate keys in fact tables**
+
+### 4.1 Start with the Business Question
+
+To start off, we start with the business question and ask ourselves what business question we want to answer? Some of the potential question we want to answer are:
+
+- Revenue by day / month / quarter
+- Revenue by product / category
+- Revenue by seller / region
+- Delivery performance (lead time, delays)
+
+### 4.2 Fact table choice & granularity
+
+Fact table is going to be built from `cleaned_order_items` because its granularity is one product in one order. Grain is what one row in the fact table represents. This is the lowest stable grain.
+
+However, we need to create dimension tables first as the fact table would be referencing it.
+
+### 4.3 Dimension Tables
+
+We will create 4 dimension tables.
+
+#### `dim_dates`
+
+- Formed by compiling various timestamps and dates columns from various cleaned tables into one table
+- Remove duplicates and then convert them into dates.
+- Thereafter, various date related information such as day of month and quarter are derived.
+- The grain is one row per calendar date.
+- No null values
+
+#### `dim_customers`
+
+- Formed from joining `cleaned_geolocation` to `cleaned_customers`.
+- This is done so that the table now has latitude and longitude information and we can do geospatial analysis if need be.
+- The `cleaned_geolocation` table's primary key is actually `("zip_code_prefix", "city", "state")`. Not `"zip_code_prefix"`, we previously thought. Thus, when joining, we need to join on these three columns.
+- The grain is one customer's transaction profile per row because one customer account can have many delivery address
+- Null values:
+  - `lat`: 302
+  - `lng`: 302
+
+#### `dim_seller`
+
+- Formed from joining `cleaned_geolocation` to `cleaned_sellers`.
+- This is done so that the table now has latitude and longitude information and we can do geospatial analysis if need be.
+- Due to similar reason as `dim_customers`, we join on `("zip_code_prefix", "city", "state")`.
+- The grain is one seller per row.
+- Null values:
+  - `lat`: 135
+  - `lng`: 135
+
+#### `dim_products`
+
+- Not much transformation done except for creation of surrogate key, reordering columns and casting columns to appropriate data types.
+- The grain is one product per row.
+- Null values:
+  - `name_length`: 610
+  - `description_length`: 610
+  - `photos_quantity`: 610
+  - `weight_g`: 2
+  - `length_cm`: 2
+  - `height_cm`: 2
+  - `width_cm`: 2
+
+**Why need a date dimension?**
+
+It allows for:
+
+- QoQ growth
+- Weekday vs weekend analysis
+- Monthly seasonality
+
+Putting it as a date dimension table also ensure that if we need to calculate metrics like QoQ growth, we don't need to write complex SQL queries and date functions to partition the dates into quarters.  All the information is already "precomputed", making analytics faster. If we have many queries that requires quarter information, it becomes tedious to keep calculating which purchase timestamp belong to which quarter.
+
+**How is Slowly Changing Dimensions (SCD) handled?**
+
+- This dataset is a static historical snapshot with no evidence of attribute evolution over time.
+- So we implemented Type 1 dimensions i.e. any updates will overwrite existing records in dimension tables.
+- However, in production systems, customer and seller information could very well change over time. Thus, we would need to implement Type 2 dimensions where we have columns like `effective_start`, `effective_end`, `is_effective` to track historical records and current records.
+
+### 4.4 Fact Table
+
+#### `fact_order_items`
+
+- Our fact table `fact_order_items` is obtained by joining `cleaned_orders` to `cleaned_order_items`.
+- This gives the `cleaned_order_items` table information about the various timestamps such as purchase timestamps, delivery timestamps etc.
+- We converted the timestamp into seconds precision to match ClickHouse because Pandas store timestamps in nanoseconds precision while ClickHouse `DateTime` type is in seconds precision.
+- To relate this fact table to `dim_dates` table, we only picked `"purchase_timestamp"` because other timestamp columns have NULL values.
+- We also created a new measure column `"item_total_value"` which is the addition of price and freight value for each item. This is to ensure easier computation of metrics.
+- Null values:
+  - `approved_timestamp`: 15
+  - `carrier_received_timestamp`: 1194
+  - `order_delivered_timestamp`: 2454
+
+**What about `cleaned_order_reviews` and `cleaned_order_payments` tables?**
+
+- They are not used in this case as they are different grain from `cleaned_order_items`
+- Each row in these tables are at the transaction/order level rather than item level
+
+**Why only purchase date key?**
+
+- The other timestamp columns have missing values due to order being not completely delivered while `purchase_timestamp` is always present.
+- Thus, it does not make sense for us to reference the date dimension table and force a dimensional relationship.
+- Also, for most sales KPI and analysis, it is defined with respect to purchase timestamp rather than delivery timestamp.
+- Other timestamps are useful when trying to optimize the logistic side of things. However, for these scenarios, comparing timestamps would be more appropriate rather than dates because from order purchase to shipped out to logistics partner could be within the same day.
+- Furthermore, the industry practice is to associate a single business event with an single event time to ensure the grain of the fact table is consistent.
+
+**Why is there no estimated delivery date key?**
+
+- We didn't create a date key column for `estimated_delivery_date` since it is just an estimation rather than a guarantee or business event that could be used to compute important sales KPIs.
+- It is not guaranteed to be accurate or present and cannot be used to slice revenue by time.
+- The only instance where this date would be useful is to determine whether an estimate is reasonable which does not need information like which quarter is this delivery estimated date from.
+
+**Why not drop the timestamps in favor of the dates?**
+
+- We did not drop the timestamps because the logistics department may need these information to do intra-day analysis or delivery SLA.
+- However, they are not modeled into dimension tables because of the complexity. Timestamps have very fine granularity, up to seconds. There is the issue of different time zones.
+- Furthermore, given that ClickHouse is columnar data store, extra columns are cheap and queries only need scan the columns they need. So, no real downside to dropping them.
+
+**Why not merge `delivered_status_with_missing_timestamp` and `delivered_timestamp_with_incorrect_status` into a single column?**
+
+- They represent different failure modes.
+- Combining them loses diagnostic power. We don't know what is the specific reason why we exclude a row from delivery KPI calculation.
+- We can always derived it in SQL later.
+
+### 4.5 Other things done
+
+- Creating surrogate keys for the dimension tables using DataFrame's index + 1.
+- We can do this because the `id` column in each of them is unique and not null and hence the rows are unique and not null.
+- For `dim_dates` the surrogate key is the date in `YYYYMMDD` format but in integer type rather than string or datetime type.
+- Adding these surrogate keys to the fact table and dropping the natural keys in the fact table.
+- Reordering columns for clarity and also to group similar columns together, especially for fact table where there is a lot of columns.
+- Casting the data types to match the ClickHouse schema data types. For example, `Decimal` for monetary value, `UInt64` for surrogate keys.
+- Uniqueness of keys check
+- Referential integrity check
+
+**Why YYYYMMDD used as surrogate key in `dim_dates`?**
+
+- We need a surrogate key for the other dimension tables because their natural key is a alphanumeric string whose format may change overtime causing unintentional duplicates.
+- So we used incremental numbers to distinguish these records.
+- Dates on the other hand is "fixed" in a sense that there is always a year, month, day.
+- Even if they are in different order, they can always be arranged to YYYYMMDD format.
+- So it is better to use it as a surrogate key since it clear and has a meaning instead of using a meaningless integer
+- YYYYMMDD instead of DDMMYYYY format also ensures that the keys are inherently sequential and ordered chronologically.
+- This ordering allows us to store the date key as an integer in terms of string.
+
+**Why store date key as integer, specifically UInt32?**
+
+- Storing as integer is more space efficient and result in faster joins compared to string.
+- UInt32 was chosen as it is large enough to accommodate to all possible dates.
+- The dates are bounded by 8 digits. So, we don't need a super large type like UInt64.
+- The rest of the surrogate keys need UInt64 as they are incrementing integers and thus is unbounded.
+
+### 4.6 Final Schema
+
+![clickhouse_schema](./attachments/clickhouse_schema.png)
+
+- After we modeled into this star schema, we saved it as parquet files.
+- We created a DDL file (`src/clickhouse_ddl.sql`) containing the table definitions and ran them in DbVisualizer connected to ClickHouse, to create these fact and dimension tables.
+- Next, we inserted the records/data into these ClickHouse tables using a Python script (`src/clickhouse_insert.py`).
+
+### 4.7 ClickHouse
+
+```sql
+-- Dates Dimension Table
+CREATE TABLE IF NOT EXISTS brazilian_ecommerce.dim_dates
+(
+    date_key UInt32,
+    date Date,
+    year UInt16,
+    quarter UInt8,
+    month UInt8,
+    month_name String,
+    week_of_year UInt8,
+    day_of_month UInt8,
+    day_of_week UInt8,
+    day_name String,
+    is_weekend Bool
+)
+ENGINE = MergeTree
+ORDER BY date_key;
+
+-- Customers Dimension Table
+CREATE TABLE IF NOT EXISTS brazilian_ecommerce.dim_customers
+(
+    customer_key UInt64,
+    customer_id String,
+    customer_unique_id String,
+    zip_code_prefix String,
+    city String,
+    state String,
+    lat Nullable(Float64),
+    lng Nullable(Float64)
+)
+ENGINE = MergeTree
+ORDER BY customer_key;
+
+-- Sellers Dimension Table
+CREATE TABLE IF NOT EXISTS brazilian_ecommerce.dim_sellers
+(
+    seller_key UInt64,
+    seller_id String,
+    zip_code_prefix String,
+    city String,
+    state String,
+    lat Nullable(Float64),
+    lng Nullable(Float64)
+)
+ENGINE = MergeTree
+ORDER BY seller_key;
+
+-- Products Dimension Table
+CREATE TABLE IF NOT EXISTS brazilian_ecommerce.dim_products
+(
+    product_key UInt64,
+    product_id String,
+    category_name Nullable(String),
+    name_length Nullable(UInt32),
+    description_length Nullable(UInt32),
+    photos_quantity Nullable(UInt16),
+    weight_g Nullable(Float64),
+    length_cm Nullable(Float64),
+    height_cm Nullable(Float64),
+    width_cm Nullable(Float64)
+)
+ENGINE = MergeTree
+ORDER BY product_key;
+
+-- Orders Fact Table
+CREATE TABLE IF NOT EXISTS brazilian_ecommerce.fact_order_items
+(
+    -- Grain (Degenerate dimension)
+    order_id String,
+    order_item_id UInt32,
+  
+    -- Surrogate keys
+    customer_key UInt64,
+    seller_key UInt64,
+    product_key UInt64,
+    purchase_date_key UInt32,
+  
+    -- Measures
+    price Decimal(10, 2),
+    freight_value Decimal(10, 2),
+    item_total_value Decimal(10, 2),
+  
+    -- Core attributes
+    order_status String,
+    purchase_timestamp DateTime('UTC'),
+    approved_timestamp Nullable(DateTime('UTC')),
+    ship_out_deadline Nullable(DateTime('UTC')),
+    carrier_received_timestamp Nullable(DateTime('UTC')),
+    order_delivered_timestamp Nullable(DateTime('UTC')),
+    estimated_delivery_date Nullable(Date),
+  
+    -- Data quality flags
+    missing_required_timestamps Bool,
+    status_aware_ordering Bool,
+    delivered_status_with_missing_timestamp Bool,
+    delivered_timestamp_with_incorrect_status Bool
+)
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(purchase_timestamp) -- partition by month for performance
+ORDER BY (purchase_date_key, order_id, order_item_id);
 ```
 
-Modifying profile fails because while ClickHouse uses the `<constraints>` tag in the users.xml configuration file, the SQL syntax for managing settings profiles handles constraints (like `MIN`, `MAX`, or `CHANGEABLE_IN_READONLY`) directly within the MODIFY SETTINGS or ADD SETTINGS clause. Thus, the following will throw an error.
+**How did we order the columns in fact table?**
 
-```text
-12aebe0c0d62 :) ALTER SETTINGS PROFILE readonly_profile CONSTRAINTS max_execution_time CHANGEABLE_IN_READONLY;  
+- We ordered it based on logical group such as identity/grain, foreign keys, measures, business lifecycle timestamps, data quality flags.
 
-Syntax error: failed at position 41 (CONSTRAINTS):
+**Does table column order matter?**
 
-ALTER SETTINGS PROFILE readonly_profile CONSTRAINTS max_execution_time CHANGEABLE_IN_READONLY;
+- For performance no, but for readability yes.
+- ClickHouse is a _column-oriented_ database. Unlike row-oriented databases (like MySQL/Postgres) where row data is stored sequentially in a block, ClickHouse stores each column in its own separate file (`column_name.bin`) on the disk.
+- The order we define columns in the `CREATE TABLE` statement has **zero impact** on read/write performance or disk storage alignment. The database engine accesses the specific column files it needs independently.
+- However, we should group the columns logically (e.g., Keys first, then Metrics, then Attributes) for human readability.
 
-Expected one of: token, Comma, RENAME TO, AlterSettingsProfileElements, SETTINGS, SETTING, PROFILES, PROFILE, INHERIT, ADD, DROP, MODIFY, ON, IN, TO, ParallelWithClause, PARALLEL WITH, end of query
+**Why did we pick the engine to be `MergeTree`?**
+
+- According to Official [ClickHouse Docs](https://clickhouse.com/docs/engines/table-engines/mergetree-family/mergetree), `MergeTree`-family table engines are designed for high data ingest rates and huge data volumes. Insert operations create table parts which are merged by a background process with other table parts.
+- Our data represents immutable transaction logs. `MergeTree` is  thus chosen since it is the robust, default engine designed to ingest data quickly and merge "parts" (files) in the background to optimize storage. It preserves every row you insert.
+
+**Why not `SummingMergeTree`?**
+
+- This engine is a specialized `MergeTree` that automatically adds up numeric columns and collapses rows that have the same Primary Key.
+- We are building a Granular Fact Table, not a pre-aggregated summary. We need to retain individual line item details, even if they look similar. `SummingMergeTree` destroys row-level detail in favor of aggregated totals.
+- However, this engine is useful when building Data Marts using Materialized Views.
+
+**Why not `ReplacingMergeTree`?**
+
+- This engine removes duplicates (keeping the latest version) based on the Primary Key during background merges.
+- Since our dataset is historical and we are cleaning duplicates _before_ loading (in the Python ETL stage), `MergeTree` provides faster read/write performance without the overhead of deduplication logic.
+
+**Is there Primary Key in ClickHouse?**
+
+- There is but it functions differently from a traditional database (Postgres/MySQL)
+- **No Uniqueness:** In ClickHouse, a Primary Key **does not enforce unique values**. You can insert duplicate IDs, and ClickHouse will happily accept them.
+- **Sparse Indexing:** Instead of pointing to every single row (like a B-Tree index in MySQL), the ClickHouse Primary Key is a **Sparse Index**. It points to the start of a "granule" (typically every 8,192 rows).
+- It’s like the guide words at the top of a dictionary page ("Apple - Apricot"). It doesn't tell you exactly where a word is, but it tells you which page to look at.
+- Its only job is **Speed**. It helps ClickHouse skip huge blocks of data that don't match your query (Data Pruning)
+
+**Is there Partition Key in ClickHouse and what is its role?**
+
+- Yes, it is defined by `PARTITION BY` and in our fact table we used `toYYYYMM(purchase_timestamp)`.
+- Partitioning splits the table into separate physical folders on the disk (e.g., `201701`, `201702`).
+- If our query has `WHERE purchase_date > '2017-06-01'`, ClickHouse doesn't even open the folders for Jan - May. It ignores them (Partition Pruning).
+
+**Does the `PARTITION BY` and `ORDER BY` columns need to be the most leftmost?**
+
+- Due to the same reason as to why column order does not matter in ClickHouse, the `PARTITION BY` column does not need to be the leftmost column.
+- Similarly, the first column in the `ORDER BY`, does not need to be the leftmost column in the table. However, what columns we specify and the order in which we specify matters for performance.
+
+**Does orders of columns in `PARTITION BY` and `ORDER BY` matter?**
+
+- For Partition Key, it does not matter since it is typically just one expression, like Month.
+- For Primary Key (Ordering Key), the order matters.
+- In our fact table, we have `ORDER BY (purchase_date_key, order_id, order_item_id)`.
+- This order of columns specified defines the physical sort order of the data on disk, given that we didn't specify `PRIMARY KEY`, the same columns and order of columns used in `ORDER BY` would be used for `PRIMARY KEY`.
+- Thus, the **sparse primary index** (per granule, e.g. every ~8192 rows) will be built off the `PRIMARY KEY` which has the same columns as `ORDER BY` and allows ClickHouse to efficiently skip large chunks of data during queries, making filters on the leading columns of the sort key (`ORDER BY`) very fast.
+- However, if we do `WHERE order_id = 'abc123'` and skipped the first column, ClickHouse has to scan every single `purchase_date_key` because the date is sorted by `purchase_date_key` first.
+- ClickHouse can only use the index for **prefix conditions**. Once the prefix is broken, remaining columns don’t help prune data.
+
+**Is Ordering Key and Primary Key the same thing?**
+
+- `ORDER BY` defines the physical sorting of data on disk
+- `PRIMARY KEY` defines the sparse primary index that is use to skip data
+- If `PRIMARY KEY` is not specified, it defaults to `ORDER BY`
+- If both are specified, the `PRIMARY KEY` must be a prefix of `ORDER BY`
+- So `PRIMARY KEY` controls the sparse index while `ORDER BY` controls the on-disk sorting.
+- However, most cases people do not explicitly specify `PRIMARY KEY`, they rely on implicit `PRIMARY KEY` via `ORDER BY`.
+
+```sql
+ORDER BY (purchase_date_key, order_id, order_item_id)
+PRIMARY KEY (purchase_date_key, order_id) -- valid (prefix)
+
+PRIMARY KEY (order_id) -- invalid
 ```
+
+**Does ClickHouse enforce referential integrity?**
+
+- ClickHouse does not enforce referential integrity (Foreign Key constraints).
+- If we try to insert a record into your `fact_order_items` table with a `customer_key` that does not exist in your `dim_customers` table, ClickHouse will not throw an error. It will accept the data without complaint.
+- This is due to different design philosophy. OLTP databases (Postgres, MySQL) are designed for transactional safety. Every time you insert a row, the database pauses to check: "Does this ID exist in the other table?" This requires "random access" reads, which are slow. ClickHouse (OLAP) is designed for speed and scale such as analytical queries on large amounts of data as fast as possible. Enforcing referential integrity would add a significant overhead to data insertion (write) operations because the database would need to validate every incoming foreign key against the primary key in another table.
+- Thus, referential integrity is the responsibility of the ETL Pipeline which is what we have done in our case.
+
+**Difference between `PARTITION BY` and `ORDER BY` in ClickHouse?**
+
+- `PARTITION BY` is about partition pruning while `ORDER BY` is about sorting and implicitly data skipping (data pruning within the partitions) via `PRIMARY KEY`.
+- In our fact table, we partition by month so that each partition is not too large nor too small. If partition is too small, there is the overhead of managing a lot of partitions. But if partition is too large, there maybe suboptimal query parallelization.
+
+**Are there indexes in ClickHouse and do we need to create them manually?**
+
+**Primary Index (Mandatory/Automatic):** When you create a table using a `MergeTree` engine, you must specify an `ORDER BY` clause, which defines the physical sort order of data on disk and automatically creates a sparse primary index.
+
+- **Purpose:** The primary index allows ClickHouse to quickly skip over massive blocks of irrelevant data (called "granules") during a query, drastically reducing I/O operations and memory usage.
+- **Design:** Unlike traditional databases that index every row, the sparse primary index in ClickHouse has one entry per ~8,192 rows (by default). This keeps the index small enough to fit entirely in memory, even for petabyte-scale tables.
+- **Key Consideration:** The choice of columns in the `ORDER BY` clause is the most significant query optimization you can make, as it directly impacts how data is physically stored and retrieved.
+
+**Secondary Indexes (Optional/Manual):** ClickHouse also supports optional "data skipping indexes" (sometimes referred to as secondary indexes) which you can add using the `ALTER TABLE` statement. These are useful for speeding up queries that filter on non-primary key columns.
+
+- **Purpose:** These indexes store aggregated information (like `min`/`max` values, `set` of values, or `bloom_filter` signatures) about data blocks to help ClickHouse skip reading data parts when the primary index is not sufficient.
+- **Usage:** They are particularly effective for columns with high cardinality (many distinct values) that are used in `WHERE` clauses but aren't part of the primary key.
+- **Types:** Available types include `minmax`, `set`, `bloom_filter`, and full-text indexes for string columns.
+
+**Why some columns are Nullable while some are not?**
+
+- In general, columns that are non-null are preferred over nullable columns due to storage optimization and query performance.
+- In a columnar database like ClickHouse, data is stored in separate files for each column.
+- **Non-Nullable Column:** Stored as a single compressed file (`column.bin`).
+- **Nullable Column:** Requires two files.
+    1. The data file (`column.bin`).
+    2. A separate "Null Map" file (`column.null.bin`) which stores a boolean mask (1=Null, 0=Value) for every single row.
+- Using `Nullable` effectively doubles the number of file reads the OS has to manage for that column, increasing I/O overhead.
+- Another aspect is query performance. With `Nullable`, CPU cannot just crunch the data. It must first check the "Null Map" to see if the value is valid, then perform the operation. This "branching" logic breaks the pipeline and prevents efficient vectorization.

@@ -1,0 +1,91 @@
+Table cleaned_orders {
+  order_id String [pk]
+  customer_id String
+  order_status String
+  purchase_timestamp DateTime
+  approved_timestamp DateTime
+  carrier_received_timestamp DateTime
+  order_delivered_timestamp DateTime
+  estimated_delivery_date Date
+  missing_required_timestamps Boolean
+  status_aware_ordering Boolean
+  delivered_status_with_missing_timestamp Boolean
+  delivered_timestamp_with_incorrect_status Boolean
+}
+
+Table cleaned_order_reviews {
+  review_id String [pk]
+  order_id String [pk]
+  review_score Int64
+  review_title String
+  review_message String
+  review_date Date
+  review_timestamp DateTime
+}
+
+Table cleaned_order_payments {
+  order_id String [pk]
+  payment_sequential Int64 [pk]
+  payment_type String
+  payment_installments Int64
+  payment_value Decimal
+}
+
+Table cleaned_order_items {
+  order_id String [pk]
+  order_item_id Int64 [pk]
+  product_id String
+  seller_id String
+  ship_out_deadline DateTime
+  price Decimal
+  freight_value Decimal
+}
+
+Table cleaned_products {
+  product_id String [pk]
+  category_name String
+  name_length Float64
+  description_length Float64
+  photos_quantity Float64
+  weight_g Float64
+  length_cm Float64
+  height_cm Float64
+  width_cm Float64
+}
+
+Table cleaned_sellers {
+  seller_id String [pk]
+  zip_code_prefix String
+  city String
+  state String
+}
+
+Table cleaned_customers {
+  customer_id String [pk]
+  customer_unique_id String [pk]
+  zip_code_prefix String
+  city String
+  state String
+}
+
+Table cleaned_geolocation {
+  zip_code_prefix String [pk]
+  city String [pk]
+  state String [pk]
+  lat Float64
+  lng Float64
+}
+
+// Foreign key relationships
+Ref: cleaned_orders.customer_id > cleaned_customers.customer_id
+Ref: cleaned_order_reviews.order_id > cleaned_orders.order_id
+Ref: cleaned_order_payments.order_id > cleaned_orders.order_id
+Ref: cleaned_order_items.order_id > cleaned_orders.order_id
+Ref: cleaned_order_items.product_id > cleaned_products.product_id
+Ref: cleaned_order_items.seller_id > cleaned_sellers.seller_id
+Ref: cleaned_sellers.zip_code_prefix > cleaned_geolocation.zip_code_prefix
+Ref: cleaned_sellers.city > cleaned_geolocation.city
+Ref: cleaned_sellers.state > cleaned_geolocation.state
+Ref: cleaned_customers.zip_code_prefix > cleaned_geolocation.zip_code_prefix
+Ref: cleaned_customers.city > cleaned_geolocation.city
+Ref: cleaned_customers.state > cleaned_geolocation.state
