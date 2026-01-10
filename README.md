@@ -54,9 +54,9 @@ Be sure to set the display timezone to UTC-3 Brazil Standard Time to prevent con
 
 We can run `src/clickhouse_ddl.sql` in DbVisualizer connected to ClickHouse to create the fact and dimension tables definitions.
 
-![dbvisualizer_3](./attachments/dbvisualizer_1.png)
-![dbvisualizer_4](./attachments/dbvisualizer_2.png)
-![dbvisualizer_5](./attachments/dbvisualizer_3.png)
+![dbvisualizer_3](./attachments/dbvisualizer_3.png)
+![dbvisualizer_4](./attachments/dbvisualizer_4.png)
+![dbvisualizer_5](./attachments/dbvisualizer_5.png)
 
 ## 💽 Data Ingestion
 
@@ -74,132 +74,176 @@ Using the following commands to insert will result in error because the parquet 
 docker exec -i clickhouse clickhouse-client --query="INSERT INTO brazilian_ecommerce.fact_order_items FORMAT Parquet" < data/model/fact_order_items.parquet
 ```
 
-### Create an admin user
+## 🧰 Enable Access Management
 
-These will copy the user configuration files of ClickHouse to local `docker/` folder for editing.
+First, we need to enable access management for the default user to create an admin account.
 
-```bash
-docker cp clickhouse:/etc/clickhouse-server/users.xml .
-docker cp clickhouse:/etc/clickhouse-server/users.d .
-```
+1. **Copy configuration files from container**
 
-Upon inspection, we see that we only need to modify the `user.d/default-user.xml` file since it overrides the settings in `users.xml` file. This is because we specify the `CLICKHOUSE_USER` and `CLICKHOUSE_PASSWORD` environment variables in our docker-compose file.
+    This will copy the user configuration files of ClickHouse to local directory for editing.
 
-Modify/Update the `user.d/default-user.xml` file with the following lines. The intention is to modify the default user to enable SQL mode so that it can later create an administrator account with full administrative rights. [Official Docs](https://clickhouse.com/docs/operations/access-rights#enabling-access-control)
+    ```bash
+    docker cp clickhouse:/etc/clickhouse-server/users.xml .
+    docker cp clickhouse:/etc/clickhouse-server/users.d .
+    ```
 
-```xml
-<access_management>1</access_management>
-<named_collection_control>1</named_collection_control>
-<show_named_collections>1</show_named_collections>
-<show_named_collections_secrets>1</show_named_collections_secrets>
-```
+2. **Edit the default user configuration**
 
-Save and then copy the `user.d/default-user.xml` file back to ClickHouse container.
+    Open `users.d/default-user.xml` and add these lines to enable access management features. This is to temporarily give the default user permission to create other users so that we can later create an administrator account with full administrative rights. [Official Docs](https://clickhouse.com/docs/operations/access-rights#enabling-access-control)
 
-```bash
-docker cp users.d/default-user.xml clickhouse:/etc/clickhouse-server/users.d/default-user.xml
-```
+    ```xml
+    <access_management>1</access_management>
+    <named_collection_control>1</named_collection_control>
+    <show_named_collections>1</show_named_collections>
+    <show_named_collections_secrets>1</show_named_collections_secrets>
+    ```
 
-Enter the Clickhouse container in Docker
+    > We only modify the `user.d/default-user.xml` file instead of `users.xml` because the settings in `users.xml` has been overriden by `user.d/default-user.xml` due to us specifiying `CLICKHOUSE_USER` and `CLICKHOUSE_PASSWORD` environment variables in our docker-compose file.
 
-```bash
-docker exec -it clickhouse bash
-```
+3. **Copy the modified file back**
 
-Login using default credentials
+    Save and then copy the `user.d/default-user.xml` file back to ClickHouse container.
 
-```bash
-clickhouse-client --user default_write --password default_write
-```
+    ```bash
+    docker cp users.d/default-user.xml clickhouse:/etc/clickhouse-server/users.d/default-user.xml
+    ```
 
-Create an admin account
+4. **Restart ClickHouse to apply changes**
 
-```sql
-CREATE USER admin_user IDENTIFIED BY 'admin_user';
-```
+    Wait a few moments for the container to restart.
 
-Grant admin with full administrative rights
+    ```bash
+    docker restart clickhouse
+    ```
 
-```sql
-GRANT ALL ON *.* TO admin_user WITH GRANT OPTION;
-```
+## 🔐 Create Admin User
 
-Exit the clickhouse-client and Docker container.
+1. **Access ClickHouse container**
 
-```bash
-exit
-exit
-```
+    ```bash
+    docker exec -it clickhouse bash
+    ```
 
-Now we modify the `user.d/default-user.xml` file in our local directory back to the original one. Change the following 
+2. **Login with default credentials**
 
-```xml
-<access_management>1</access_management>
-<named_collection_control>1</named_collection_control>
-<show_named_collections>1</show_named_collections>
-<show_named_collections_secrets>1</show_named_collections_secrets>
-```
+    ```bash
+    clickhouse-client --user default_write --password default_write
+    ```
 
-to the original configuration to remove the default user's ability to create or modify user permissions.
+3. **Create admin user**
 
-```xml
-<access_management>0</access_management>
-```
+    ```sql
+    CREATE USER admin_user IDENTIFIED BY 'admin_user';
+    ```
 
-### Create Read-only User
+4. **Grant admin with full administrative rights**
 
-Enter Clickhouse Docker container.
+    ```sql
+    GRANT ALL ON *.* TO admin_user WITH GRANT OPTION;
+    ```
 
-```bash
-docker exec -it clickhouse bash
-```
+5. **Exit clickhouse-client and Docker container**
 
-Login with the admin credentials
+    ```bash
+    exit # exit clickhouse-client
+    exit # exit container
+    ```
 
-```bash
-clickhouse-client --user admin_user --password admin_user
-```
+## 🚫 Restrict Default User
 
-Create a read-only profile with a default maximum execution time of 60 seconds. According to the [Official Grafana Docs](https://grafana.com/grafana/plugins/grafana-clickhouse-datasource/), we need to ensure that the read-only user have sufficient permissions to modify the `max_execution_time` setting required by the underlying clickhouse-go client.
+After creating the admin user, we don't want our default user to be able to create users. Only the admin user can create user.
 
-Alternative is to set `readonly = 2`. Then we don't have to set the `max_execution_time CHANGEABLE_IN_READONLY`.
+1. **Edit the default user configuration**
 
-```sql
-CREATE SETTINGS PROFILE readonly_profile SETTINGS readonly = 1, max_execution_time = 60;
-```
+    Modify the `user.d/default-user.xml` file in our local directory back to the original one.
 
-```sql
-ALTER SETTINGS PROFILE readonly_profile MODIFY SETTINGS max_execution_time CHANGEABLE_IN_READONLY;
-```
+    ```xml
+    <!-- Currently look like this -->
+    <access_management>1</access_management>
+    <named_collection_control>1</named_collection_control>
+    <show_named_collections>1</show_named_collections>
+    <show_named_collections_secrets>1</show_named_collections_secrets>
 
-Create read-only user
+    <!-- Change to this -->
+    <access_management>0</access_management>
+    ```
 
-```sql
-CREATE USER readonly_user IDENTIFIED BY 'readonly_user';
--- If you want the password to be hashed
--- CREATE USER readonly_user IDENTIFIED WITH sha256_password BY 'readonly_user';
-```
+2. **Copy the modified file back**
 
-Assign profile to read-only user
+    Save and then copy the `user.d/default-user.xml` file back to ClickHouse container.
 
-```sql
-ALTER USER readonly_user SETTINGS PROFILE readonly_profile;
-```
+    ```bash
+    docker cp users.d/default-user.xml clickhouse:/etc/clickhouse-server/users.d/default-user.xml
+    ```
 
-Grant `SELECT` privileges on the brazilian ecommerce database to the read-only user because by default, a new user has no access to any databases or tables. Must explicitly grant `SELECT` privileges to specific databases or tables.
+3. **Restart ClickHouse to apply changes**
 
-```sql
-GRANT SELECT ON brazilian_ecommerce.* TO readonly_user;
-```
+    Wait a few moments for the container to restart.
 
-Exit the Clickhouse container
+    ```bash
+    docker restart clickhouse
+    ```
 
-```bash
-exit
-exit
-```
+## 📖 Create Read-only User
 
-Once done we can delete the `users.xml` and `users.d/default-user.xml` files from our local `docker/` folder.
+1. **Enter Clickhouse Docker container**
+
+    ```bash
+    docker exec -it clickhouse bash
+    ```
+
+2. **Login with admin credentials**
+
+    ```bash
+    clickhouse-client --user admin_user --password admin_user
+    ```
+
+3. **Create a read-only settings profile**
+
+    Create a read-only profile with a default maximum execution time of 60 seconds. According to the [Official Grafana Docs](https://grafana.com/grafana/plugins/grafana-clickhouse-datasource/), we need to ensure that the read-only user have sufficient permissions to modify the `max_execution_time` setting required by the underlying clickhouse-go client.
+
+    Alternative is to set `readonly = 2`. Then we don't have to set the `max_execution_time CHANGEABLE_IN_READONLY`.
+
+    ```sql
+    CREATE SETTINGS PROFILE readonly_profile SETTINGS readonly = 1, max_execution_time = 60;
+    ```
+
+    ```sql
+    ALTER SETTINGS PROFILE readonly_profile MODIFY SETTINGS max_execution_time CHANGEABLE_IN_READONLY;
+    ```
+
+4. **Create read-only user**
+
+    ```sql
+    CREATE USER readonly_user IDENTIFIED BY 'readonly_user';
+    -- If you want the password to be hashed
+    -- CREATE USER readonly_user IDENTIFIED WITH sha256_password BY 'readonly_user';
+    ```
+
+5. **Assign profile to read-only user**
+
+    ```sql
+    ALTER USER readonly_user SETTINGS PROFILE readonly_profile;
+    ```
+
+6. **Grant Permissions**
+
+    Grant `SELECT` privileges on the brazilian ecommerce database to the read-only user because by default, a new user has no access to any databases or tables. Must explicitly grant `SELECT` privileges to specific databases or tables.
+
+    ```sql
+    GRANT SELECT ON brazilian_ecommerce.* TO readonly_user;
+    ```
+
+7. **Exit and clean up**
+
+    Exit the Clickhouse container
+
+    ```bash
+    exit # exit clickhouse-client
+    exit # exit container
+    ```
+
+    Once done we can delete the `users.xml` and `users.d/default-user.xml` files from our local project directory.
 
 ## Grafana
 
@@ -212,7 +256,7 @@ Credentials for first time login
 - Username: `admin`
 - Password: `admin`
 
-If we are logging in for first time, we will be prompted to change the password. For simplicity for this project, we can just change it to `admin123`. 
+If we are logging in for first time, we will be prompted to change the password. For simplicity for this project, we can just change it to `admin123`.
 
 Update credentials
 
@@ -221,8 +265,20 @@ Update credentials
 
 Once logged in, we should install the plugin for ClickHouse. Go to "Connections" > "Add new connection". Then find ClickHouse and install it.
 
+![grafana_clickhouse_plugin](./attachments/grafana_clickhouse_plugin.png)
+
 ## 🔌 Ports Used
 
 - Grafana: `3000`
 - ClickHouse HTTP: `8123`
 - ClickHouse Client: `9000`
+
+## 👤 Account Credentials Reference
+
+**ClickHouse:**
+
+| User      | Username        | Password            | Purpose                        |
+| --------- | --------------- | ------------------- | ------------------------------ |
+| Admin     | `admin_user`    | `admin_user`        | Full database administration   |
+| Read-only | `readonly_user` | `readonly_user`     | Grafana dashboards & reporting |
+| Default   | `default_write` | `default_write`     | Writing Data to ClickHouse     |
