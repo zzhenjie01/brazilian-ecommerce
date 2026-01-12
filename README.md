@@ -176,14 +176,6 @@ After creating the admin user, we don't want our default user to be able to crea
     docker cp users.d/default-user.xml clickhouse:/etc/clickhouse-server/users.d/default-user.xml
     ```
 
-3. **Restart ClickHouse to apply changes**
-
-    Wait a few moments for the container to restart.
-
-    ```bash
-    docker restart clickhouse
-    ```
-
 ## 📖 Create Read-only User
 
 1. **Enter Clickhouse Docker container**
@@ -264,8 +256,6 @@ Update credentials
 - Password: `admin123`
 
 Once logged in, we should install the plugin for ClickHouse. Go to "Connections" > "Add new connection". Then find ClickHouse and install it.
-
-![grafana_clickhouse_plugin](./attachments/grafana_clickhouse_plugin.png)
 
 ## 🔌 Ports Used
 

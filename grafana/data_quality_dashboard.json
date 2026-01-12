@@ -1,0 +1,829 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 2
+              },
+              {
+                "color": "#EAB839",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 4
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "cf9rjcm0ndqtcd"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    (countIf(missing_required_timestamps = true OR \r\n             status_aware_ordering = false OR \r\n             delivered_status_with_missing_timestamp = true OR \r\n             delivered_timestamp_with_incorrect_status = true) / count()) * 100 AS \"Quality Issue Rate %\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp);",
+          "refId": "A"
+        }
+      ],
+      "title": "% Records with Quality Issues",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "description": "Based on order_status, certain timestamps are missing.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "records"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    countIf(missing_required_timestamps = true) AS \"Missing Timestamps\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp);\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Missing Timestamps",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "description": "Based on order_status, some timestamps are not chronological e.g. delivered timestamp before parcel received by logistics partner",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "records"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    countIf(status_aware_ordering = false) AS \"Timestamp Ordering Violations\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp);",
+          "refId": "A"
+        }
+      ],
+      "title": "Timestamp Ordering Violations",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "records"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "id": 8,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "Status",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    order_status AS \"Status\",\r\n    countIf(missing_required_timestamps = true) AS \"Missing Timestamps\",\r\n    countIf(missing_required_timestamps = false) AS \"Complete Records\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\nGROUP BY order_status\r\nORDER BY \"Missing Timestamps\" DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Missing Timestamps by Status",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "records"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "id": 9,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    order_status AS \"Status\",\r\n    countIf(status_aware_ordering = false) AS \"Incorrect Timestamp Ordering\",\r\n    countIf(status_aware_ordering = true) AS \"Correct Timestamp Ordering\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\nGROUP BY order_status\r\nORDER BY \"Incorrect Timestamp Ordering\" DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Incorrect Timestamp Ordering by Status",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "records"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "timezone": [
+          "America/Bahia"
+        ],
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "builderOptions": {
+            "columns": [],
+            "database": "brazilian_ecommerce",
+            "filters": [
+              {
+                "condition": "AND",
+                "filterType": "custom",
+                "hint": "time",
+                "key": "",
+                "operator": "WITH IN DASHBOARD TIME RANGE",
+                "type": "datetime"
+              }
+            ],
+            "limit": 1000,
+            "meta": {},
+            "mode": "list",
+            "orderBy": [
+              {
+                "default": true,
+                "dir": "ASC",
+                "hint": "time",
+                "name": ""
+              }
+            ],
+            "queryType": "timeseries",
+            "table": "dim_customers"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "brazilian_ecommerce",
+              "filters": [
+                {
+                  "condition": "AND",
+                  "filterType": "custom",
+                  "hint": "time",
+                  "key": "",
+                  "operator": "WITH IN DASHBOARD TIME RANGE",
+                  "type": "datetime"
+                }
+              ],
+              "limit": 1000,
+              "meta": {},
+              "mode": "list",
+              "orderBy": [
+                {
+                  "default": true,
+                  "dir": "ASC",
+                  "hint": "time",
+                  "name": ""
+                }
+              ],
+              "queryType": "timeseries",
+              "table": "dim_customers"
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    $__timeInterval(purchase_timestamp) AS time,\r\n    countIf(missing_required_timestamps = true) AS \"Missing Timestamps\",\r\n    countIf(status_aware_ordering = false) AS \"Timestamp Ordering Violations\",\r\n    countIf(delivered_status_with_missing_timestamp = true) AS \"Delivered Status with Missing Timestamp\",\r\n    countIf(delivered_timestamp_with_incorrect_status = true) AS \"Delivered Timestamp with Incorrect Status\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\nGROUP BY time\r\nORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Data Quality Issues over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "hideFrom": {
+              "viz": false
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 5,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    'Missing Required Timestamps' AS \"Quality Check\",\r\n    countIf(missing_required_timestamps = true) AS \"Failed Count\",\r\n    count() AS \"Total Records\",\r\n    (countIf(missing_required_timestamps = true) / count()) * 100 AS \"Failure Rate %\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\n\r\nUNION ALL\r\n\r\nSELECT \r\n    'Status Aware Ordering',\r\n    countIf(status_aware_ordering = false),\r\n    count(),\r\n    (countIf(status_aware_ordering = false) / count()) * 100\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\n\r\nUNION ALL\r\n\r\nSELECT \r\n    'Delivered Status Missing Timestamp',\r\n    countIf(delivered_status_with_missing_timestamp = true),\r\n    count(),\r\n    (countIf(delivered_status_with_missing_timestamp = true) / count()) * 100\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\n\r\nUNION ALL\r\n\r\nSELECT \r\n    'Delivered Timestamp Wrong Status',\r\n    countIf(delivered_timestamp_with_incorrect_status = true),\r\n    count(),\r\n    (countIf(delivered_timestamp_with_incorrect_status = true) / count()) * 100\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)",
+          "refId": "A"
+        }
+      ],
+      "title": "Data Quality Checks Summary",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 6,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    order_id AS \"Order ID\",\r\n    order_item_id AS \"Order Item ID\",\r\n    order_status AS \"Status\",\r\n    purchase_timestamp AS \"Purchase Time\",\r\n    order_delivered_timestamp AS \"Delivered Time\",\r\n    'Missing delivery timestamp' AS \"Issue\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\n  AND delivered_status_with_missing_timestamp = true\r\nORDER BY purchase_timestamp DESC\r\nLIMIT 100;",
+          "refId": "A"
+        }
+      ],
+      "title": "Delivered Status without Delivery Timestamp",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    order_id AS \"Order ID\",\r\n    order_item_id AS \"Order Item ID\",\r\n    order_status AS \"Status\",\r\n    purchase_timestamp AS \"Purchase Time\",\r\n    order_delivered_timestamp AS \"Delivered Time\",\r\n    'Has delivery timestamp but wrong status' AS \"Issue\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\n  AND delivered_timestamp_with_incorrect_status = true\r\nORDER BY purchase_timestamp DESC\r\nLIMIT 100;",
+          "refId": "A"
+        }
+      ],
+      "title": "Delivery Timestamp without Delivered Status",
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "2016-01-01T03:00:00.000Z",
+    "to": "2019-01-01T02:59:59.000Z"
+  },
+  "timepicker": {},
+  "timezone": "America/Bahia",
+  "title": "Data Quality",
+  "uid": "adfng4l",
+  "version": 6
+}

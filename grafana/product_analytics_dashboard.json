@@ -1,0 +1,757 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "description": "Excluding \"canceled\" and \"unavailable\" orders",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "hideFrom": {
+              "viz": false
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    p.product_id AS \"Product ID\",\r\n    p.category_name AS \"Category\",\r\n    count() AS \"Items Sold\",\r\n    sum(f.item_total_value) AS \"Revenue\",\r\n    avg(f.price) AS \"Avg Price\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_products p ON f.product_key = p.product_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status NOT IN ('canceled', 'unavailable')\r\nGROUP BY p.product_id, p.category_name\r\nORDER BY Revenue DESC\r\nLIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 10 Products by Revenue",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "description": "Excluding \"canceled\" and \"unavailable\" orders",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "cf9rjcm0ndqtcd"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    p.category_name AS \"Category\",\r\n    count() AS \"Items Sold\",\r\n    sum(f.item_total_value) AS \"Revenue\",\r\n    avg(f.price) AS \"Avg Price\",\r\n    avg(f.freight_value) AS \"Avg Freight Value\",\r\n    avg(p.weight_g) AS \"Avg Weight (g)\",\r\n    sum(f.item_total_value) / count() AS \"Revenue per Item\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_products p ON f.product_key = p.product_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status NOT IN ('canceled', 'unavailable')\r\n  AND p.category_name IS NOT NULL\r\nGROUP BY p.category_name\r\nORDER BY Revenue DESC;\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Product Category Performance",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "right",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "currencyBRL"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Freight/Price Ratio %"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "left"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 4,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": -15,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    p.category_name AS \"Category\",\r\n    (avg(f.freight_value) / nullIf(avg(f.price), 0)) * 100 AS \"Freight/Price Ratio %\",\r\n    avg(f.freight_value) AS \"Avg Freight\",\r\n    avg(f.price) AS \"Avg Price\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_products p ON f.product_key = p.product_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status NOT IN ('canceled', 'unavailable')\r\n  AND p.category_name IS NOT NULL\r\nGROUP BY p.category_name\r\nHAVING count() > 10\r\nORDER BY \"Freight/Price Ratio %\" DESC\r\nLIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "title": "Freight to Price Ratio by Category",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "grams"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Items Sold"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "items"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 5,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "Category",
+        "xTickLabelRotation": -15,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    p.category_name AS \"Category\",\r\n    avg(p.weight_g) AS \"Avg Weight (g)\",\r\n    count() AS \"Items Sold\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_products p ON f.product_key = p.product_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status NOT IN ('canceled', 'unavailable')\r\n  AND p.category_name IS NOT NULL\r\n  AND p.weight_g IS NOT NULL\r\nGROUP BY p.category_name\r\nHAVING count() > 10\r\nORDER BY \"Avg Weight (g)\" DESC\r\nLIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "title": "Product Category by Weight",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "description": "Excluding \"canceled\" and \"unavailable\" orders",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 50,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 5
+            },
+            "pointStrokeWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "points"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 8,
+        "x": 0,
+        "y": 18
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mapping": "auto",
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": {
+              "matcher": {
+                "id": "byName",
+                "options": "Avg Price"
+              }
+            },
+            "y": {
+              "matcher": {
+                "id": "byName",
+                "options": "Avg Freight Value"
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    p.category_name AS \"Category\",\r\n    avg(f.price) AS \"Avg Price\",\r\n    avg(f.freight_value) AS \"Avg Freight Value\",\r\n    count() AS \"Items Sold\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_products p ON f.product_key = p.product_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status NOT IN ('canceled', 'unavailable')\r\n  AND p.category_name IS NOT NULL\r\nGROUP BY p.category_name\r\nHAVING count() > 10\r\nORDER BY \"Items Sold\" DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Freight vs Price Plot",
+      "type": "xychart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 50,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 5
+            },
+            "pointStrokeWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "points"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 8,
+        "x": 8,
+        "y": 18
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mapping": "manual",
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": {
+              "matcher": {
+                "id": "byName",
+                "options": "Avg Weight (g)"
+              }
+            },
+            "y": {
+              "matcher": {
+                "id": "byName",
+                "options": "Avg Freight Value"
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    p.category_name AS \"Category\",\r\n    avg(p.weight_g) AS \"Avg Weight (g)\",\r\n    avg(f.freight_value) AS \"Avg Freight Value\",\r\n    count() AS \"Items Sold\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_products p ON f.product_key = p.product_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status NOT IN ('canceled', 'unavailable')\r\n  AND p.category_name IS NOT NULL\r\n  AND p.weight_g IS NOT NULL\r\n  AND p.weight_g > 0\r\nGROUP BY p.category_name\r\nHAVING count() > 10  -- Filter out categories with few items\r\nORDER BY \"Avg Weight (g)\" DESC;\r\n\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Freight Value vs Weight Plot",
+      "type": "xychart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 50,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 5
+            },
+            "pointStrokeWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "points"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 8,
+        "x": 16,
+        "y": 18
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mapping": "manual",
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": {
+              "matcher": {
+                "id": "byName",
+                "options": "Avg Volume (cm³)"
+              }
+            },
+            "y": {
+              "matcher": {
+                "id": "byName",
+                "options": "Avg Freight Value"
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    p.category_name AS \"Category\",\r\n    avg(p.length_cm * p.width_cm * p.height_cm) AS \"Avg Volume (cm³)\",\r\n    avg(f.freight_value) AS \"Avg Freight Value\",\r\n    count() AS \"Items Sold\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_products p ON f.product_key = p.product_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status NOT IN ('canceled', 'unavailable')\r\n  AND p.category_name IS NOT NULL\r\n  AND p.length_cm IS NOT NULL\r\n  AND p.width_cm IS NOT NULL\r\n  AND p.height_cm IS NOT NULL\r\n  AND p.length_cm > 0 AND p.width_cm > 0 AND p.height_cm > 0\r\nGROUP BY p.category_name\r\nHAVING count() > 10  -- Filter out categories with few items\r\nORDER BY \"Avg Volume (cm³)\" DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Freight Value vs Volume Plot",
+      "type": "xychart"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "2016-01-01T03:00:00.000Z",
+    "to": "2019-01-01T02:59:59.000Z"
+  },
+  "timepicker": {},
+  "timezone": "America/Belem",
+  "title": "Product Analytics",
+  "uid": "adm8fmv",
+  "version": 8
+}

@@ -1,0 +1,590 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "description": "Excluding orders that are \"canceled\" or \"unavailable\".",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "displayLabels": [],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Customers$/",
+          "values": true
+        },
+        "sort": "desc",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "cf9rjcm0ndqtcd"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "WITH customer_orders AS (\r\n    SELECT \r\n        c.customer_unique_id,\r\n        uniqExact(f.order_id) AS order_count,\r\n        sum(f.item_total_value) AS lifetime_value\r\n    FROM brazilian_ecommerce.fact_order_items f\r\n    JOIN brazilian_ecommerce.dim_customers c ON f.customer_key = c.customer_key\r\n    WHERE $__timeFilter(f.purchase_timestamp)\r\n      AND f.order_status NOT IN ('canceled', 'unavailable')\r\n    GROUP BY c.customer_unique_id\r\n)\r\nSELECT \r\n    CASE \r\n        WHEN order_count = 1 THEN '1 - One-time'\r\n        WHEN order_count = 2 THEN '2 - Repeat'\r\n        WHEN order_count BETWEEN 3 AND 5 THEN '3-5 - Regular'\r\n        ELSE '6+ - Loyal'\r\n    END AS \"Customer Segment\",\r\n    count() AS \"Customers\",\r\n    sum(lifetime_value) AS \"Total Revenue\"\r\nFROM customer_orders\r\nGROUP BY \"Customer Segment\"\r\nORDER BY \"Customers\" DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Customer Segmentation",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "description": "Excluding orders that are \"canceled\" or \"unavailable\".",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "currencyBRL"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Orders"
+            },
+            "properties": [
+              {
+                "id": "unit"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Customers"
+            },
+            "properties": [
+              {
+                "id": "unit"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Latitude"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "degree"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Longitude"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "degree"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 9,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "basemap": {
+          "config": {},
+          "name": "Layer 0",
+          "noRepeat": false,
+          "opacity": 0.3,
+          "type": "default"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showMeasure": false,
+          "showScale": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "fixed": "dark-green"
+                },
+                "opacity": 1,
+                "rotation": {
+                  "fixed": 0,
+                  "max": 360,
+                  "min": -360,
+                  "mode": "mod"
+                },
+                "size": {
+                  "field": "Revenue",
+                  "fixed": 5,
+                  "max": 18,
+                  "min": 3
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "horizontal": "center",
+                  "vertical": "center"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": 0,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
+              }
+            },
+            "filterData": {
+              "id": "byRefId",
+              "options": "A"
+            },
+            "location": {
+              "mode": "auto"
+            },
+            "name": "Revenue",
+            "opacity": 0.7,
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "allLayers": true,
+          "id": "coords",
+          "lat": -14.392317,
+          "lon": -46.02671,
+          "noRepeat": false,
+          "zoom": 4.45
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    c.state AS \"State\",\r\n    sum(f.item_total_value) AS \"Revenue\",\r\n    uniqExact(f.order_id) AS \"Orders\",\r\n    uniqExact(c.customer_unique_id) AS \"Customers\",\r\n    avg(c.lat) AS \"Latitude\",\r\n    avg(c.lng) AS \"Longitude\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_customers c ON f.customer_key = c.customer_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status NOT IN ('canceled', 'unavailable')\r\nGROUP BY c.state\r\nORDER BY Revenue DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Revenue, Orders, Customer by State",
+      "type": "geomap"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "description": "Excludes orders that are \"canceled\" or \"unavailable\".",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "currencyBRL"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "lifetime_value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "count"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 9,
+        "x": 15,
+        "y": 0
+      },
+      "id": 5,
+      "options": {
+        "bucketCount": 100,
+        "combine": false,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    c.customer_unique_id,\r\n    sum(f.item_total_value) AS lifetime_value\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_customers c ON f.customer_key = c.customer_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n    AND f.order_status NOT IN ('canceled', 'unavailable')\r\nGROUP BY c.customer_unique_id;",
+          "refId": "A"
+        }
+      ],
+      "title": "Customer Lifetime Value Distribution",
+      "type": "histogram"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "description": "Tracks the first purchase of each customer. Excludes orders that are \"canceled\" or \"unavailable\".",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "timezone": [
+          "America/Belem"
+        ],
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "WITH first_purchases AS (\r\n    SELECT \r\n        c.customer_unique_id,\r\n        min(f.purchase_timestamp) AS first_purchase_date\r\n    FROM brazilian_ecommerce.fact_order_items f\r\n    JOIN brazilian_ecommerce.dim_customers c ON f.customer_key = c.customer_key\r\n    WHERE f.order_status NOT IN ('canceled', 'unavailable')\r\n    GROUP BY c.customer_unique_id\r\n)\r\nSELECT \r\n    $__timeInterval(first_purchase_date) AS time,\r\n    count() AS \"New Customers\"\r\nFROM first_purchases\r\nWHERE $__timeFilter(first_purchase_date)\r\nGROUP BY time\r\nORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Customer Acquisition Trend",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "hideFrom": {
+              "viz": false
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 3,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Revenue"
+          }
+        ]
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    c.city AS \"City\",\r\n    c.state AS \"State\",\r\n    uniqExact(c.customer_unique_id) AS \"Customers\",\r\n    uniqExact(f.order_id) AS \"Orders\",\r\n    sum(f.item_total_value) AS \"Revenue\",\r\n    sum(f.item_total_value) / uniqExact(f.order_id) AS \"Avg Order Value\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_customers c ON f.customer_key = c.customer_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status NOT IN ('canceled', 'unavailable')\r\nGROUP BY c.city, c.state\r\nORDER BY Revenue DESC\r\nLIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 10 Cities by Revenue",
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "2016-01-01T03:00:00.000Z",
+    "to": "2019-01-01T02:59:59.000Z"
+  },
+  "timepicker": {},
+  "timezone": "America/Belem",
+  "title": "Customer Analytics",
+  "uid": "ad74hf9",
+  "version": 6
+}

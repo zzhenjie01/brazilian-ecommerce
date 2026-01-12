@@ -1,0 +1,785 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 10
+              },
+              {
+                "color": "#EAB839",
+                "value": 20
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          },
+          "unit": "days"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "cf9rjcm0ndqtcd"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    avg(dateDiff('day', purchase_timestamp, order_delivered_timestamp)) AS \"Avg Delivery Lead Time\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\n  AND order_status = 'delivered'\r\n  AND order_delivered_timestamp IS NOT NULL;",
+          "refId": "A"
+        }
+      ],
+      "title": "Average Delivery Lead Time",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 70
+              },
+              {
+                "color": "#EAB839",
+                "value": 80
+              },
+              {
+                "color": "green",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    (countIf(order_delivered_timestamp <= estimated_delivery_date) / count()) * 100 AS \"On-Time Rate %\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\n  AND order_status = 'delivered'\r\n  AND order_delivered_timestamp IS NOT NULL\r\n  AND estimated_delivery_date IS NOT NULL;",
+          "refId": "A"
+        }
+      ],
+      "title": "On-Time Delivery Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 10
+              },
+              {
+                "color": "#EAB839",
+                "value": 20
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    (countIf(order_delivered_timestamp > estimated_delivery_date) / count()) * 100 AS \"Late Delivery Rate %\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\n  AND order_status = 'delivered'\r\n  AND order_delivered_timestamp IS NOT NULL\r\n  AND estimated_delivery_date IS NOT NULL;",
+          "refId": "A"
+        }
+      ],
+      "title": "Late Delivery Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "orders"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "id": 9,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": true
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": false,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    order_status AS \"Status\",\r\n    uniqExact(order_id) AS \"Orders\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\nGROUP BY order_status\r\nORDER BY \r\n    CASE order_status\r\n        WHEN 'created' THEN 1\r\n        WHEN 'approved' THEN 2\r\n        WHEN 'invoiced' THEN 3\r\n        WHEN 'processing' THEN 4\r\n        WHEN 'shipped' THEN 5\r\n        WHEN 'delivered' THEN 6\r\n        WHEN 'canceled' THEN 7\r\n        WHEN 'unavailable' THEN 8\r\n        ELSE 9\r\n    END;",
+          "refId": "A"
+        }
+      ],
+      "title": "Order Status",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    CASE WHEN c.state = s.state THEN 'Same State' ELSE 'Cross State' END AS \"Shipping Type\",\r\n    uniqExact(f.order_id) AS \"Orders\",\r\n    avg(dateDiff('day', f.purchase_timestamp, f.order_delivered_timestamp)) AS \"Avg Delivery Days\",\r\n    avg(f.freight_value) AS \"Avg Freight Value\",\r\n    (countIf(f.order_delivered_timestamp > f.estimated_delivery_date) / count()) * 100 AS \"Late Delivery Rate %\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_customers c ON f.customer_key = c.customer_key\r\nJOIN brazilian_ecommerce.dim_sellers s ON f.seller_key = s.seller_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status = 'delivered'\r\n  AND f.order_delivered_timestamp IS NOT NULL\r\nGROUP BY \"Shipping Type\"\r\nORDER BY Orders DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Same State vs Cross State Delivery Performance",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "displayName": "count",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "days"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "days"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 5,
+      "options": {
+        "bucketCount": 120,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    dateDiff('day', purchase_timestamp, order_delivered_timestamp) AS days\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\n    AND order_status = 'delivered'\r\n    AND order_delivered_timestamp IS NOT NULL;",
+          "refId": "A"
+        }
+      ],
+      "title": "Delivery Lead Time Distribution",
+      "type": "histogram"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Late Delivery Rate %"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "timezone": [
+          "America/Bahia"
+        ],
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    $__timeInterval(purchase_timestamp) AS time,\r\n    avg(dateDiff('day', purchase_timestamp, order_delivered_timestamp)) AS \"Avg Delivery Lead Time (Days)\",\r\n    (countIf(order_delivered_timestamp > estimated_delivery_date) / count()) * 100 AS \"Late Delivery Rate %\"\r\nFROM brazilian_ecommerce.fact_order_items\r\nWHERE $__timeFilter(purchase_timestamp)\r\n  AND order_status = 'delivered'\r\n  AND order_delivered_timestamp IS NOT NULL\r\n  AND estimated_delivery_date IS NOT NULL\r\nGROUP BY time\r\nORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Delivery Performance over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "hideFrom": {
+              "viz": false
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    p.category_name AS \"Category\",\r\n    sum(f.freight_value) AS \"Total Freight\",\r\n    avg(f.freight_value) AS \"Avg Freight per Item\",\r\n    count() AS \"Items Shipped\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_products p ON f.product_key = p.product_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status NOT IN ('canceled', 'unavailable')\r\n  AND p.category_name IS NOT NULL\r\nGROUP BY p.category_name\r\nORDER BY \"Total Freight\" DESC\r\nLIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "title": "Freight Value by Category",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "cf9rjcm0ndqtcd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "hideFrom": {
+              "viz": false
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "id": 6,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.11.4",
+          "queryType": "table",
+          "rawSql": "SELECT \r\n    c.state AS \"State\",\r\n    uniqExact(f.order_id) AS \"Delivered Orders\",\r\n    avg(dateDiff('day', f.purchase_timestamp, f.order_delivered_timestamp)) AS \"Avg Delivery Lead Time (Days)\",\r\n    (countIf(f.order_delivered_timestamp > f.estimated_delivery_date) / count()) * 100 AS \"Late Delivery %\",\r\n    sum(f.freight_value) AS \"Total Freight Value\",\r\n    avg(f.freight_value) AS \"Avg Freight Value\"\r\nFROM brazilian_ecommerce.fact_order_items f\r\nJOIN brazilian_ecommerce.dim_customers c ON f.customer_key = c.customer_key\r\nWHERE $__timeFilter(f.purchase_timestamp)\r\n  AND f.order_status = 'delivered'\r\n  AND f.order_delivered_timestamp IS NOT NULL\r\nGROUP BY c.state\r\nORDER BY \"Delivered Orders\" DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Delivery Performance by State",
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "2016-01-01T03:00:00.000Z",
+    "to": "2019-01-01T02:59:59.000Z"
+  },
+  "timepicker": {},
+  "timezone": "America/Belem",
+  "title": "Logistics Analytics",
+  "uid": "adzsfh9",
+  "version": 10
+}
