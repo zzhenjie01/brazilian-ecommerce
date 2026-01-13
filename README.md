@@ -2,6 +2,8 @@
 
 ## Project Overview
 
+![project_flow](./attachments/project_flow.png)
+
 ## 🐍 Python Environment Setup
 
 ```bash
@@ -57,6 +59,15 @@ We can run `src/clickhouse_ddl.sql` in DbVisualizer connected to ClickHouse to c
 ![dbvisualizer_3](./attachments/dbvisualizer_3.png)
 ![dbvisualizer_4](./attachments/dbvisualizer_4.png)
 ![dbvisualizer_5](./attachments/dbvisualizer_5.png)
+
+## 🔍 EDA, Data Validation, Cleaning, Modeling
+
+Run the following 4 notebooks to understand the raw data and also generate cleaned data and modeled star schema data, ready to be ingested into ClickHouse DW.
+
+- `01_eda.ipynb`
+- `02_data_validation.ipynb`
+- `03_data_transformation.ipynb`
+- `04_data_modeling.ipynb`
 
 ## 💽 Data Ingestion
 
@@ -237,25 +248,75 @@ After creating the admin user, we don't want our default user to be able to crea
 
     Once done we can delete the `users.xml` and `users.d/default-user.xml` files from our local project directory.
 
-## Grafana
+## 📊 Grafana Dashboard Setup
 
-Once the container for Grafana is setup, we can access it at `http://localhost:3000`
+1. **Access Grafana**
 
-We can login with the following [default credentials](https://grafana.com/docs/grafana/latest/setup-grafana/sign-in-to-grafana/)
+    ```text
+    http://localhost:3000
+    ```
 
-Credentials for first time login
+    Login with the following [default credentials](https://grafana.com/docs/grafana/latest/setup-grafana/sign-in-to-grafana/). Credentials for first time login:
 
-- Username: `admin`
-- Password: `admin`
+    - Username: `admin`
+    - Password: `admin`
 
-If we are logging in for first time, we will be prompted to change the password. For simplicity for this project, we can just change it to `admin123`.
+    If we are logging in for first time, we will be prompted to change the password. For simplicity for this project, we can just change it to `admin123`. Updated credentials:
 
-Update credentials
+    - Username: `admin`
+    - Password: `admin123`
 
-- Username: `admin`
-- Password: `admin123`
+2. **Install ClickHouse Plugin**
 
-Once logged in, we should install the plugin for ClickHouse. Go to "Connections" > "Add new connection". Then find ClickHouse and install it.
+    Navigate to "Connections" > "Add new connection". Search for "ClickHouse" and click "Install".
+
+    ![grafana_1](./attachments/grafana_1.png)
+    ![grafana_2](./attachments/grafana_2.png)
+
+3. **Add ClickHouse Data Source**
+
+    Navigate to "Data Sources" > "Add data source" and select "ClickHouse".
+
+    ![grafana_3](./attachments/grafana_3.png)
+    ![grafana_4](./attachments/grafana_4.png)
+
+4. **Configuring the Connection**
+
+    We will be brought to the setup page. Do the following:
+
+    - Name: `clickhouse-brazilian-ecommerce`
+    - Server Address: `clickhouse`
+    - Server Port: `8123`
+    - Protocol: `HTTP`
+    - Skip TLS Verify: Turn on since we are not using HTTPS
+    - Username: `readonly_user`
+    - Password: `readonly_user`
+
+    Thereafter, click "Save & Test".
+
+    ![grafana_5](./attachments/grafana_5.png)
+    ![grafana_6](./attachments/grafana_6.png)
+
+    > Note that for "Server Address", it is not `localhost` or `127.0.0.1` because the ClickHouse and Grafana are separate containers. They identify each other and communicate via container names within the Docker network. When you type `localhost`, Grafana will interpret it as "within itself", resulting in connection failure.
+    > We use ClickHouse read-only user for Grafana because we don't want users to accidentally write or modify data in ClickHouse from Grafana.
+
+5. **Configure Default Database**
+
+    Go to "Data Sources" > "clickhouse-brazilian-ecommerce" > Additional settings" > "Default DB and table". Set the "Default database" to `brazilian_ecommerce`.
+
+    ![grafana_7](./attachments/grafana_7.png)
+
+6. **Import Dashboard**
+
+    Go to "Dashboards" and click on "Create dashboard".
+
+    ![grafana_8](./attachments/grafana_8.png)
+
+    Then, click on "Import on a dashboard".
+
+    ![grafana_9](./attachments/grafana_9.png)
+
+    We can upload our dashboard JSON files which are located at `REPO_ROOT/grafana`. There are a total of 6 JSON files each corresponding to a dashboard. Thus, we can repeat this process to create 6 different dashboards.
 
 ## 🔌 Ports Used
 
