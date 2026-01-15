@@ -1,15 +1,31 @@
 # Data Analysis Project on Brazilian E-Commerce Dataset
 
-## Objective
+## 🛠️ Technologies Used
+
+| Component | Technology | Purpose |
+| ----------- | ----------- | --------- |
+| Data Processing | Python (Pandas) | EDA, cleaning, transformation |
+| Data Warehouse | ClickHouse | OLAP storage and query engine |
+| Visualization | Grafana | Interactive dashboards |
+| Development | Docker | Local deployment of ClickHouse/Grafana |
+| Data Format | Parquet | Type-safe intermediate storage |
+| Database Client | DbVisualizer | ClickHouse schema management |
+
+## 🎯 Objective
 
 **Overall Objective:** To simulate data analyst end-to-end workflow in the context of ecommerce setting using Brazilian E-commerce dataset.
 
 **Learning Objectives:**
 
+- EDA
+- Data Cleaning & Tranformation
+- Data Quality Engineering
 - Data Modelling
-- Data Layering (Data Warehouse, Data Mart)
+- Data Layering (Staging Area, Data Warehouse)
+- Dashboard Development
+- Data Visualization
 
-## Dataset
+## 📈 Dataset
 
 The dataset used in this project is the Brazilian E-commerce Dataset by Olist on [Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce/data). The dataset has information of 100k orders from 2016 to 2018 made at multiple marketplaces in Brazil.
 
@@ -19,13 +35,13 @@ This dataset is provided by Olist, the largest department store in Brazilian mar
 
 After a customer purchases the product from Olist Store a seller gets notified to fulfill that order. Once the customer receives the product, or the estimated delivery date is due, the customer gets a satisfaction survey by email where he can give a note for the purchase experience and write down some comments.
 
-## Raw Dataset Schema
+## 💾 Raw Dataset Schema
 
 ![brazilian_ecommerce_raw_schema](./attachments/brazilian_ecommerce_raw_schema.png)
 
 ![raw_schema](./attachments/raw_schema.png)
 
-## Project Flow
+## 🌊 Project Flow
 
 ![project_flow](./attachments/project_flow.png)
 
@@ -35,7 +51,7 @@ After a customer purchases the product from Olist Store a seller gets notified t
 4. Data is modeled into star schema (fact and dimension tables) for Data Warehousing in ClickHouse
 5. Grafana is connected to ClickHouse DW for dashboarding and visualization
 
-## 1 Exploratory Data Analysis (EDA)
+## 🔍 1 Exploratory Data Analysis (EDA)
 
 Checks the following:
 
@@ -122,7 +138,7 @@ created -> approved -> invoiced -> processing -> shipped -> delivered
   - Spelling variations in city names such as `sao paulo`, `são paulo`, `saopaulo`, and `s. paulo` all refers to the same city. but will appear as 4 different records. Thus, we need to **standardize the spelling of city names**.
   - Even if the name is standardized, there might be multiple latitude and longitudes for a single city as the cities cover a wide area instead of being a single precise points on a map. Thus, we can take the mean of latitude and longitude to get a centroid coordinates for the city.
 
-## 2 Data Validation
+## ✅ 2 Data Validation
 
 Checks the following:
 
@@ -138,17 +154,7 @@ Checks the following:
 
 There are 4 business checks that needs to be done for this table:
 
-1. Based on the `order_status` column, certain timestamps need to be present. For example, if an order is marked as 'delivered', then all 4 timestamps should be present. See table below. (22 violations)
-    - For example, `order_status = 'shipped'` but `order_delivered_carrier_date` is null.
-    - In distributed systems, the 'Status' of an order and the 'Timestamp' of an event are often updated by different triggers. An order status might flip to 'shipped' based on a warehouse worker scanning a barcode (an internal event), but the `order_delivered_carrier_date` might depend on an API callback from the logistics partner (an external event). If the API call fails or times out, the status remains 'shipped' but the timestamp never arrives.
-2. Based on the `order_status`, we need to ensure proper chronological ordering of all the timestamps it have. (1405 violations)
-    - For example, `order_delivered_customer_date` < `order_approved_at`
-    - **Asynchronicity**: The payment system might approve an order instantly, but due to a queue lag, the 'approved' timestamp is written to the database hours later, potentially after the warehouse has already packed it and shipped to the logistics partner.
-    - **Human-in-the-Loop**: A customer service agent might manually force an order to 'Delivered' status to resolve a complaint, bypassing the logical checks and potentially inserting a timestamp that predates the approval to 'fix' a record.
-3. Orders mark as 'delivered' should have an `order_delivered_customer_date`. (8 violations)
-    - The system might have a rule that auto-closes orders as 'delivered' after 30 days if no complaint is filed, even if the carrier integration never sent a final timestamp."
-4. Orders that have `order_delivered_customer_date` needs to have `order_status` marked as 'delivered'. (6 violations)
-    - The system received the 'Delivered' event (hence the timestamp exists), but the database transaction that updates the `status` column failed or was rolled back.
+**The following table shows which timestamps must be present (✅) or may be absent (❌) based on the order_status:**
 
 | order_status | purchase | approved | carrier | delivered |
 | ------------ | -------- | -------- | ------- | --------- |
@@ -161,12 +167,34 @@ There are 4 business checks that needs to be done for this table:
 | canceled     | ✅       | ❌/✅    | ❌      | ❌        |
 | unavailable  | ✅       | ❌/✅    | ❌      | ❌        |
 
+**Expected chronological ordering of timestamps:**
+
 ```text
 order_purchase_timestamp
 ≤ order_approved_at
 ≤ order_delivered_carrier_date
 ≤ order_delivered_customer_date
 ```
+
+**Business Rule Violations Found:**
+
+1. **Missing required timestamps based on order_status** (22 violations)
+    - For example, `order_status = 'shipped'` but `order_delivered_carrier_date` is null.
+    - **Root cause**: In distributed systems, the 'Status' of an order and the 'Timestamp' of an event are often updated by different triggers. An order status might flip to 'shipped' based on a warehouse worker scanning a barcode (an internal event), but the `order_delivered_carrier_date` might depend on an API callback from the logistics partner (an external event). If the API call fails or times out, the status remains 'shipped' but the timestamp never arrives.
+
+2. **Timestamp chronological ordering violations based on order_status** (1,405 violations)
+    - For example, `order_delivered_customer_date` < `order_approved_at`.
+    - **Root causes**:
+      - **Asynchronicity**: The payment system might approve an order instantly, but due to a queue lag, the 'approved' timestamp is written to the database hours later, potentially after the warehouse has already packed and shipped it to the logistics partner.
+      - **Human-in-the-Loop**: A customer service agent might manually force an order to 'Delivered' status to resolve a complaint, bypassing the logical checks and potentially inserting a timestamp that predates the approval to 'fix' a record.
+
+3. **Orders marked as 'delivered' without delivery timestamp** (8 violations)
+    - **Root cause**: The system might have a rule that auto-closes orders as 'delivered' after 30 days if no complaint is filed, even if the carrier integration never sent a final timestamp.
+
+4. **Orders with delivery timestamp but status not marked as 'delivered'** (6 violations)
+    - **Root cause**: The system received the 'Delivered' event (hence the timestamp exists), but the database transaction that updates the `status` column failed or was rolled back.
+
+**How to handle these violations:**
 
 | Issue                                    | Drop? | Use for revenue? | Use for SLA? |
 | ---------------------------------------- | ----- | ---------------- | ------------ |
@@ -181,8 +209,8 @@ order_purchase_timestamp
 - Since they are date/timestamp columns, we can not impute it with values such as 0 or mean or median. We cannot interpolate as well.
 - We can safely leave these invalid records as it is and missing values as NULL because when we use SQL aggregate functions such as `COUNT()` or `AVG()` in Data Warehouse, NULLs would be excluded from computation.
 - However, for certain metrics such as delivery SLA or KPI, having Rule 3 & 4 violated may not be acceptable and thus should be excluded from calculation.
-- For each of the 4 rules, have a flag column in the table that indicates if the rule is violated.
-- For rule 3 and 4, we can **combine them into a single column** since if either 3 or 4 is violated, we cannot use it for delivery KPI metrics.
+- **For each of the 4 rules, we add a flag column in the table that indicates if the rule is violated.**
+- For Rules 3 and 4, we can **combine them into a single column** since if either 3 or 4 is violated, we cannot use it for delivery KPI metrics.
 
 ### 2.2 `order_reviews` table
 
@@ -221,10 +249,16 @@ order_purchase_timestamp
 
 ### 2.9 Check Timezone
 
-- All the timestamps provided are missing timezone information and the data source does not tell us whether the timestamps are UTC or Brazilian Standard Time (UTC-3). So we have to see the order purchase timestamp distribution to infer. We plot two distributions.
-- Plot 1 is assuming the time is in Brazilian local time (UTC-3) so no adjustments are made. Plot 2 is assuming the time is in UTC and thus have to -3 hours to make it local time.
-- The distribution plot tells us that the **timestamp is in local time (UTC-3)** as the lowest number of orders occurred at 4 - 5 am which is in-line with typical ecommerce order volume pattern.
-- 4 - 5 am is the point of lowest order volume because most people are asleep. Midnight is not the lowest point because there might be midnight flash sale and most people are still using their phone rather than sleeping.
+All timestamps in the dataset lack timezone information. The data source documentation doesn't specify whether timestamps are in UTC or Brazilian Standard Time (BRT, UTC-3). To determine this, we analyzed the distribution of order purchase timestamps.
+
+We created two distribution plots:
+
+- **Plot 1**: Assumes timestamps are already in Brazilian local time (UTC-3), no adjustment needed
+- **Plot 2**: Assumes timestamps are in UTC, adjusted by -3 hours to convert to local time
+
+**Finding**: The distribution reveals that **timestamps are in local Brazilian time (UTC-3)**. The lowest order volume occurs between 4-5 AM, which aligns with typical e-commerce patterns when most customers are asleep. This would not be the case if timestamps were in UTC.
+
+**Note**: Midnight is not the lowest point despite being late at night because many customers are still awake, and platforms often run midnight flash sales.
 
 #### Daylight Savings Time (DST)
 
@@ -241,14 +275,15 @@ AmbiguousTimeError: Cannot infer dst time from 2018-02-17 23:50:41, try using th
 
 ### 2.10 Check Referential Integrity
 
-- All table passed referential integrity checks except the `sellers` and `customers` table.
-- 7 sellers with zip code prefixes that does not exist in the `geolocation` table.
-- 278 customers with zip code prefixes that does not exist in the `geolocation` table.
-- A possible reason may be customer has saved an invalid address zip code when adding delivery address to their account.
-- Another reason might be new residential areas in Brazil get assigned new zip codes but the `geolocation` table is an outdated snapshot.
-- We will not remove these customers or sellers as other tables reference them. Instead when joining `geolocation` table to it, the latitudes and longitudes will be NULL.
+- All tables passed referential integrity checks except the `sellers` and `customers` tables.
+- 7 sellers with zip code prefixes that do not exist in the `geolocation` table.
+- 278 customers with zip code prefixes that do not exist in the `geolocation` table.
+- **Possible reasons**:
+  - Customers may have saved an invalid address zip code when adding a delivery address to their account.
+  - New residential areas in Brazil get assigned new zip codes but the `geolocation` table is an outdated snapshot.
+- We will not remove these customers or sellers as other tables reference them. Instead, when joining the `geolocation` table to them, the latitudes and longitudes will be NULL.
 
-## 3 Data Transformation (Cleaning)
+## 🧹 3 Data Transformation (Cleaning)
 
 Performs the following:
 
@@ -294,13 +329,13 @@ After transformation is done, each of the tables are saved to local staging area
 
 - Seller's zip code prefix is converted to string and then padded with 0's from the left to make it 5 digits.
 - Accented characters in city name are replaced with standard English alphabets.
-- Columns are renamed for clarity
+- Columns are renamed for clarity.
 
 ### 3.7 `customers` table
 
 - Customer's zip code prefix is converted to string and then padded with 0's from the left to make it 5 digits.
 - Accented characters in city name are replaced with standard English alphabets.
-- Columns are renamed for clarity
+- Columns are renamed for clarity.
 
 ### 3.8 `geolocation` table
 
@@ -317,7 +352,7 @@ After transformation is done, each of the tables are saved to local staging area
 
 - `name_length`, `description_length`, `photos_quantity` are in `float64` because they contain NULL values. So pandas auto-upcasts to `float64` so that can mark it using NaNs. Thus, we need to cast them to appropriate integer types before ingesting into ClickHouse.
 
-## 4 Data Modeling
+## 🤖 4 Data Modeling
 
 This section aims to do data modeling on the clean data. Specifically, we will be doing dimensional modeling to model the data into star schema. Star schema consist of a central fact table surrounded by a few dimension tables. The fact table contains events and measures (e.g. price, freight_value) and the dimension tables contain context (e.g. product name, product dimensions). They are often related to each other by surrogate keys rather than the business natural keys.
 
@@ -334,6 +369,8 @@ This section aims to do data modeling on the clean data. Specifically, we will b
 - Decouple warehouse from source system IDs (business natural keys)
 - Smaller integers → faster joins
 - Enables future SCD Type-2 if needed
+
+We will:
 
 - Add **integer surrogate keys** to each dimension
 - Keep **natural keys** as attributes
@@ -352,7 +389,7 @@ To start off, we start with the business question and ask ourselves what busines
 
 Fact table is going to be built from `cleaned_order_items` because its granularity is one product in one order. Grain is what one row in the fact table represents. This is the lowest stable grain.
 
-However, we need to create dimension tables first as the fact table would be referencing it.
+However, we need to create dimension tables first as the fact table would be referencing them.
 
 ### 4.3 Dimension Tables
 
@@ -451,8 +488,8 @@ Putting it as a date dimension table also ensure that if we need to calculate me
 **Why not drop the timestamps in favor of the dates?**
 
 - We did not drop the timestamps because the logistics department may need these information to do intra-day analysis or delivery SLA.
-- However, they are not modeled into dimension tables because of the complexity. Timestamps have very fine granularity, up to seconds. There is the issue of different time zones.
-- Furthermore, given that ClickHouse is columnar data store, extra columns are cheap and queries only need scan the columns they need. So, no real downside to dropping them.
+- However, they are not modeled into dimension tables because of the complexity. Timestamps have very fine granularity, up to seconds. There is also the issue of different time zones.
+- Furthermore, given that ClickHouse is columnar data store, extra columns are cheap and queries only need scan the columns they need. So, there's no real downside to keeping them.
 
 **Why not merge `delivered_status_with_missing_timestamp` and `delivered_timestamp_with_incorrect_status` into a single column?**
 
@@ -496,7 +533,7 @@ Putting it as a date dimension table also ensure that if we need to calculate me
 - We created a DDL file (`src/clickhouse_ddl.sql`) containing the table definitions and ran them in DbVisualizer connected to ClickHouse, to create these fact and dimension tables.
 - Next, we inserted the records/data into these ClickHouse tables using a Python script (`src/clickhouse_insert.py`).
 
-## 5 ClickHouse
+## 💽 5 ClickHouse
 
 ```sql
 -- Dates Dimension Table
@@ -601,6 +638,8 @@ PARTITION BY toYYYYMM(purchase_timestamp) -- partition by month for performance
 ORDER BY (purchase_date_key, order_id, order_item_id);
 ```
 
+### 5.1 Design Decisions
+
 **How did we order the columns in fact table?**
 
 - We ordered it based on logical group such as identity/grain, foreign keys, measures, business lifecycle timestamps, data quality flags.
@@ -628,13 +667,27 @@ ORDER BY (purchase_date_key, order_id, order_item_id);
 - This engine removes duplicates (keeping the latest version) based on the Primary Key during background merges.
 - Since our dataset is historical and we are cleaning duplicates _before_ loading (in the Python ETL stage), `MergeTree` provides faster read/write performance without the overhead of deduplication logic.
 
+### 5.2 Indexes and Keys in ClickHouse
+
 **Is there Primary Key in ClickHouse?**
 
-- There is but it functions differently from a traditional database (Postgres/MySQL)
-- **No Uniqueness:** In ClickHouse, a Primary Key **does not enforce unique values**. You can insert duplicate IDs, and ClickHouse will happily accept them.
-- **Sparse Indexing:** Instead of pointing to every single row (like a B-Tree index in MySQL), the ClickHouse Primary Key is a **Sparse Index**. It points to the start of a "granule" (typically every 8,192 rows).
-- It’s like the guide words at the top of a dictionary page ("Apple - Apricot"). It doesn't tell you exactly where a word is, but it tells you which page to look at.
-- Its only job is **Speed**. It helps ClickHouse skip huge blocks of data that don't match your query (Data Pruning)
+Yes, but it functions fundamentally differently from traditional RDBMS (PostgreSQL/MySQL):
+
+**Traditional Database (RDBMS):**
+
+- Primary Key enforces uniqueness (UNIQUE constraint)
+- Dense index pointing to every row
+- Used for row-level lookups and updates
+
+**ClickHouse:**
+
+- Primary Key **does NOT enforce uniqueness** - duplicate keys are allowed
+- **Sparse index** - one entry per granule (~8,192 rows by default)
+- Used purely for **data pruning** (skipping irrelevant data blocks)
+
+**Analogy**: The ClickHouse primary key is like guide words at the top of dictionary pages ("Apple - Apricot"). It doesn't tell you exactly where a word is, but it tells you which page to skip to.
+
+**Purpose**: Speed up analytical queries by skipping entire data blocks that don't match the WHERE clause filter.
 
 **Is there Partition Key in ClickHouse and what is its role?**
 
@@ -677,7 +730,8 @@ PRIMARY KEY (order_id) -- invalid
 
 - ClickHouse does not enforce referential integrity (Foreign Key constraints).
 - If we try to insert a record into your `fact_order_items` table with a `customer_key` that does not exist in your `dim_customers` table, ClickHouse will not throw an error. It will accept the data without complaint.
-- This is due to different design philosophy. OLTP databases (Postgres, MySQL) are designed for transactional safety. Every time you insert a row, the database pauses to check: "Does this ID exist in the other table?" This requires "random access" reads, which are slow. ClickHouse (OLAP) is designed for speed and scale such as analytical queries on large amounts of data as fast as possible. Enforcing referential integrity would add a significant overhead to data insertion (write) operations because the database would need to validate every incoming foreign key against the primary key in another table.
+- This is due to different design philosophy. OLTP databases (Postgres, MySQL) are designed for transactional safety. Every time you insert a row, the database pauses to check: "Does this ID exist in the other table?" This requires "random access" reads, which are slow.
+- ClickHouse (OLAP) is designed for speed and scale such as analytical queries on large amounts of data as fast as possible. Enforcing referential integrity would add a significant overhead to data insertion (write) operations because the database would need to validate every incoming foreign key against the primary key in another table.
 - Thus, referential integrity is the responsibility of the ETL Pipeline which is what we have done in our case.
 
 **Difference between `PARTITION BY` and `ORDER BY` in ClickHouse?**
@@ -718,7 +772,7 @@ PRIMARY KEY (order_id) -- invalid
 - Using `Nullable` effectively doubles the number of file reads the OS has to manage for that column, increasing I/O overhead.
 - Another aspect is query performance. With `Nullable`, CPU cannot just crunch the data. It must first check the "Null Map" to see if the value is valid, then perform the operation. This "branching" logic breaks the pipeline and prevents efficient vectorization.
 
-## 6 Grafana Dashboards
+## 📊 6 Grafana Dashboards
 
 ### 6.1 Executive Overview
 
@@ -782,14 +836,14 @@ PRIMARY KEY (order_id) -- invalid
 
 **Insights:**
 
-- The pie chart shows that most of the customer base is either one-time customers or repeat-purchase only. There are very little regular customers or loyal customers. This means that we need to think of ways to preserve user retention and continual usage.
-- We could potentialy send out or embed in the websites non-intrusive surveys. Another approach would be to collect metrics when they are using such as what products they click on, how long they click and stayed at a page. Or if they have carted items but have not checked out because competitor platforms are cheaper.
+- The pie chart shows that most of the customer base consists of either one-time customers or repeat-purchase customers. There are very few regular customers or loyal customers. This means that we need to think of ways to preserve user retention and continual usage.
+- We could potentially send out or embed non-intrusive surveys in the websites. Another approach would be to collect metrics when they are using the site, such as what products they click on, how long they stay on a page. Or if they have added items to their cart but have not checked out because competitor platforms are cheaper.
 - These metrics could then be analyzed to generate strategies to improve customer retention.
-- From the geomap and the table, we can see that cities belonging to the state of Sao Paulo are mostly among the top 10 cities by revenue.
-- This is likely due to the larger population size as compared to other rural cities or state as verified by looking at the number of customers column in the table. Thus, their large revenue is driven not by consumers spending more but rather sheer volume.
+- From the geomap and the table, we can see that cities belonging to the state of São Paulo are mostly among the top 10 cities by revenue.
+- This is likely due to the larger population size as compared to other rural cities or states, as verified by looking at the number of customers column in the table. Thus, their large revenue is driven not by consumers spending more but rather by sheer volume.
 - Looking at the Customer Lifetime Value Distribution plot, we see that most are spending between 0 to 200 Brazilian Reals. However, given that most of the customers are one-time customers, it is acceptable.
 - The strategy would thus be to improve customer retention rather than getting them to spend more.
-- Looking at the customer acquisition trend time series plot, we see that the platform have been steadily acquiring new users over time with a spike in 2017-11-23, which aligns with the revenue spike seen previously, suggesting that these new users acquired contributed to revenue spike on that day.
+- Looking at the customer acquisition trend time series plot, we see that the platform has been steadily acquiring new users over time with a spike in 2017-11-23, which aligns with the revenue spike seen previously, suggesting that these new users acquired contributed to the revenue spike on that day.
 
 ### 6.4 Logistics Analytics
 
@@ -810,11 +864,11 @@ PRIMARY KEY (order_id) -- invalid
 **Insights:**
 
 - Average Delivery Lead Time of 12.4 days seems reasonable considering the size of Brazil.
-- The On-Time Delivery Rate seems reasonable at 91.8% given current data size is only around 100k. However, once the platform scales up and reaches millions of users, a late delivery rate of 8.2% may drive customers to use competitors platform whose delivery are faster espcially for goods that are perishable like groceries.
-- Observing the Same State vs Cross State Delivery Performance table, we see that cross state delivery takes 2x as long in general and contributes more to the late delivery rate. An explanation is that the longer logistics chain for cross state delivery. A small delay in an earlier part of the chain could trigger a cascading effect leading to many more days delay.
-- Viewing the Delivery Lead Time Distribution, we see that most orders are delivered within 40 days from purchase. However, there are a minority of outliers where the delivery time could go as high as 200 days. These orders are likely due to replacement of goods or refund or perhaps even pre-order.
-- Analyzing the Delivery Performance over Time, we see that late delivery rate are generally low with seasonal spikes as observed by the consistent cycle of spike pattern.
-- Looking at the delivery performance by state, we see that Sao Paulo has the lowest average delivery lead time. This could suggest that most of the sellers and good are from within the state or the logistics is Sao Paulo is just better.
+- The On-Time Delivery Rate seems reasonable at 91.8% given the current data size is only around 100k. However, once the platform scales up and reaches millions of users, a late delivery rate of 8.2% may drive customers to use competitors' platforms whose delivery is faster, especially for goods that are perishable like groceries.
+- Observing the Same State vs Cross State Delivery Performance table, we see that cross-state delivery takes 2x as long in general and contributes more to the late delivery rate. An explanation is the longer logistics chain for cross-state delivery. A small delay in an earlier part of the chain could trigger a cascading effect leading to many more days of delay.
+- Viewing the Delivery Lead Time Distribution, we see that most orders are delivered within 40 days from purchase. However, there are a minority of outliers where the delivery time could go as high as 200 days. These orders are likely due to replacement of goods, refunds, or perhaps even pre-orders.
+- Analyzing the Delivery Performance over Time, we see that the late delivery rate is generally low with seasonal spikes as observed by the consistent cycle of spike patterns.
+- Looking at the delivery performance by state, we see that São Paulo has the lowest average delivery lead time. This could suggest that most of the sellers and goods are from within the state or the logistics in São Paulo is just better.
 
 ### 6.5 Sales Analytics
 
@@ -830,10 +884,10 @@ PRIMARY KEY (order_id) -- invalid
 
 **Insights:**
 
-- The average items per order is at 1.14 items which is not surprising as many customers are one-time customers and may just want to test out the platform or just use some promotion vouchers or discounts. This is also reflected in the Revenue per Customer (RPC) at R$166 (~ 39.6 SGD).
-- The cancelation rate remains very minimal over time as indicated by the near flat green line in the time series plot.
-- From the heatmap of day of week sales pattern, we observe that weekdays have more orders that weekends which is surprising given that you would expect people to shop more online during weekends when they are not working. One explanation might be that the sellers don't ship out immediately during weekends and wait till Monday making the delivery seem longer. Thus, people will choose to shop on weekdays where the delivery lead time could be shorter. This is of course assuming that the logistics partners don't collect parcels on weekends.
-- The hourly sales pattern heatmap is within expectations as we see that most of the orders are placed between 11am and 3am.
+- The average items per order is at 1.14 items which is not surprising as many customers are one-time customers and may just want to test out the platform or just use some promotion vouchers or discounts. This is also reflected in the Revenue per Customer (RPC) at R$166 (~39.6 SGD).
+- The cancellation rate remains very minimal over time as indicated by the near flat green line in the time series plot.
+- From the heatmap of day of week sales pattern, we observe that weekdays have more orders than weekends, which is surprising given that you would expect people to shop more online during weekends when they are not working. One explanation might be that the sellers don't ship out immediately during weekends and wait till Monday, making the delivery seem longer. Thus, people will choose to shop on weekdays where the delivery lead time could be shorter. This is, of course, assuming that the logistics partners don't collect parcels on weekends.
+- The hourly sales pattern heatmap is within expectations as we see that most of the orders are placed between 11 AM and 3 AM.
 
 ### 6.6 Data Quality
 
@@ -853,14 +907,74 @@ PRIMARY KEY (order_id) -- invalid
 
 **Insights:**
 
-- The percentage of records with data quality issues is at 1.45%. However, given that we have around 100k records, this may be acceptable for now. Thus, we need to work with the SWEs and Backend engineers to figure out what is wrong and clarify if it is intended to be this way due to certain business logic or it is due to technical errors.
-- Looking at the two bar charts on missing timestamp by status and incorrect timestamp ordering by status, we found that most of the issue came from those marked as delivered status which is also further confirmed by the data quality checks summary table.
-- We also observe from the time series plot that the data quality issues (specifically timestamp ordering violations) are occuring more frequently towards the later periods.
-- All these suggest that the backend or the queues maybe overloaded leading to timestamp ordering violations.
+- The percentage of records with data quality issues is at 1.45%. However, given that we have around 100k records, this may be acceptable for now. Thus, we need to work with the Software Engineers and Backend engineers to figure out what is wrong and clarify if it is intended to be this way due to certain business logic or if it is due to technical errors.
+- Looking at the two bar charts on missing timestamps by status and incorrect timestamp ordering by status, we found that most of the issues came from those marked as delivered status, which is also further confirmed by the data quality checks summary table.
+- We also observe from the time series plot that the data quality issues (specifically timestamp ordering violations) are occurring more frequently towards the later periods.
+- All these suggest that the backend or the queues may be overloaded leading to timestamp ordering violations.
 - We also have 2 tables showing the specific records that have delivered status without delivery timestamp and also those that have delivery timestamp but no delivered status. This will allow us to investigate the data quality issues.
-- Interestingly, we see that those records with delivered timestamp without delivered status are all cancelled orders. This suggest that after the parcel is delivered, the customer returned the order for a refund or exchange.
+- Interestingly, we see that those records with delivered timestamp without delivered status are all canceled orders. This suggests that after the parcel is delivered, the customer returned the order for a refund or exchange.
+
+## 🎯 Key Takeaways
+
+This project demonstrates:
+
+1. **End-to-end data analytics workflow**: From raw data → EDA → cleaning → modeling → warehousing → visualization
+2. **Dimensional modeling best practices**: Star schema with proper fact/dimension separation and surrogate keys
+3. **Data quality engineering**: Systematic validation with business rule flags rather than blind deletion
+4. **Appropriate technology selection**: ClickHouse for OLAP, avoiding over-engineering (no unnecessary MVs/data marts)
+5. **Production-ready considerations**: Timezone handling, referential integrity, null handling, and performance optimization
+
+### Skills Acquired
+
+**Data Skills:**
+
+- Comprehensive data validation with quality flags
+- Proper UTC timezone standardization
+- Thoughtful indexing and partitioning strategy
+- Clear documentation of design trade-offs
+- Business-focused dashboard organization
+- Understanding when NOT to over-engineer
+
+**Technical Skills:**
+
+- Python (Pandas) for ETL and data transformation
+- SQL (ClickHouse dialect) for analytical queries
+- Dimensional modeling (star schema)
+- Data quality engineering
+- Dashboard development (Grafana)
+
+**Analytical Skills:**
+
+- Business logic validation
+- Root cause analysis for data quality issues
+- KPI definition and metric design
+- Insight generation from visualizations
+
+**Engineering Judgment:**
+
+- Knowing when to use materialized views (and when not to)
+- Understanding trade-offs between normalization and query performance
+- Balancing data quality vs. data availability
 
 ## ❓ FAQ
+
+### Data Modeling
+
+**What is a Data Mart?**
+
+A Data Mart is a **subject-oriented**, pre-aggregated dataset optimized for dashboards, business users and repeated KPI queries. Examples include `daily_sales`, `monthly_revenue`.
+
+**Why no Data Mart was created?**
+
+- **Star schema already enables fast analytics**
+  - Fact + dimension tables means that joins are simple and we have high flexibility to write different queries.
+
+- **Avoid metric duplication**
+  - Pre-aggregated marts risk: inconsistent KPI definitions, double counting, and schema drift.
+
+- **Dataset size is small**
+  - With only ~100k records, queries on the fact table are already fast (<1 second).
+  - Pre-aggregation would add complexity without meaningful performance gains.
 
 **What is a Materialized View (MV) in ClickHouse?**
 
@@ -875,32 +989,24 @@ INSERT → Source Table → Materialized View → Target Table
 **Why no Materialized Views were created for this project?**
 
 - **Dataset size is small**
-    - The Brazilian e-commerce dataset fits comfortably in memory
-    - Raw fact queries are already fast (< milliseconds)
+  - The Brazilian e-commerce dataset fits comfortably in memory
+  - Raw fact queries are already fast (<1 second)
 - **Exploratory analytics focused**
-    - Metrics evolve during analysis
-    - Hard-coding aggregations too early reduces flexibility
+  - Metrics evolve during analysis
+  - Hard-coding aggregations too early reduces flexibility
 - **Avoid premature optimization**
-    - increase operational complexity
-    - require backfills (i.e. filling up the target table manually with data since MV are `INSERT` triggered and fill ups new data only) given that the dataset is a historical dataset.
+  - Increases operational complexity
+  - Requires backfills (i.e., filling up the target table manually with data since MVs are `INSERT` triggered and fill up new data only) given that the dataset is a historical dataset
+- **Static historical data**
+  - No continuous data ingestion
+  - Materialized views are designed for real-time, continuously growing datasets
 
-**What is a Data Mart?**
-
-A Data Mart is a **subject-oriented**, pre-aggregated dataset optimized for dashboards, business users and repeated KPI queries. Examples include `daily_sales`, `monthly_revenue`.
-
-**Why no Data Mart was created?**
-
-- **Star schema already enables fast analytics**
-    - Fact + dimension tables means that joins are simple and we have high flexibility to write different queries.
-        
-- **Avoid metric duplication**
-    - Pre-aggregated marts risk: inconsistent KPI definitions, double counting, and schema drift
-
-**Why is `SummingMergeTree` engine dangerous when used with `avg()`?
+**Why is `SummingMergeTree` dangerous when used with `avg()`?**
 
 - `SummingMergeTree` loses information required to compute averages correctly.
 - It automatically merges rows with the same primary key and sums numeric columns. But it does not track counts.
 - Example:
+
 ```text
 Row 1: sum = 100, count = 1
 Row 2: sum = 50,  count = 1
@@ -909,29 +1015,59 @@ Row 2: sum = 50,  count = 1
 avg = sum/count cannot be computed anymore as count is lost
 ```
 
+**Why use YYYYMMDD format as surrogate key in `dim_dates`?**
+
+Unlike other dimension tables where natural keys (product_id, customer_id) are alphanumeric strings that may change format over time, dates have a **fixed structure** that is globally standardized.
+
+**Benefits of YYYYMMDD integer format:**
+
+- **Self-documenting**: The key `20180115` is immediately recognizable as January 15, 2018
+- **Chronologically ordered**: Keys sort naturally in ascending date order
+- **Space-efficient**: Stored as `UInt32` (4 bytes) vs string (8+ bytes)
+- **Fast joins**: Integer comparisons are faster than string comparisons
+- **Bounded range**: All dates fit within 8 digits (e.g., 19700101 to 99991231), so `UInt32` is sufficient
+
+Other surrogate keys use `UInt64` because they are unbounded auto-incrementing integers.
+
+### ClickHouse Architecture
+
 **Is ClickHouse distributed and fault tolerant? How?**
 
 No, ClickHouse is not distributed by default. It runs as a single-node database, but its architecture is built for horizontal scaling using its `Distributed` table engine, which requires manual setup to create clusters, define shards, and configure nodes for distributed operations like sharding and replication. You must explicitly define the cluster, create underlying tables (like `ReplicatedMergeTree`) on each node, and then create a `Distributed` table on top to get a unified, distributed view.
 
 Similarly, it is not fault tolerant by default in a single-node setup.  Fault tolerance and high availability (HA) must be explicitly configured, typically by setting up a cluster with data replication.
 
-**Distribution**
+**Distribution:**
+
 - Data is sharded across nodes
 - Queries are executed locally on shards and results merged by the coordinator
-        
+
 ```text
 `Client → Distributed Table → Shards → Merge Results`
 ```
 
-**Fault tolerance**
+**Fault tolerance:**
 
 Achieved via:
+
 - Replication using `ReplicatedMergeTree`
 - Coordination through ZooKeeper / ClickHouse Keeper
 - If one replica fails, another serves reads (automatic failover)
 
+### Design Decisions
+
 **Why is Airflow not used?**
 
 - Airflow is designed for scheduled workflows via complex DAGs for multi-step production pipelines.
-- This project uses a one-time historical dataset where there's no incremental ingestion, late arriving data or SLA requirements.
-- Using Airflow would add unnecessary overhead, increased maintainence complexity and distract from learn goals.
+- This project uses a one-time historical dataset where there's no incremental ingestion, late-arriving data, or SLA requirements.
+- Using Airflow would add unnecessary overhead, increased maintenance complexity, and distract from learning goals.
+- For a static dataset, a simple Python script is more appropriate.
+
+**However**, in a production e-commerce environment with:
+
+- Daily/hourly data feeds
+- Multiple data sources (orders, inventory, reviews)
+- Data quality checks and alerting
+- Dependency management between tasks
+
+Airflow would be the appropriate choice.
