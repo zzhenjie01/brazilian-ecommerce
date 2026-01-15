@@ -52,14 +52,6 @@ Be sure to set the display timezone to UTC-3 Brazil Standard Time to prevent con
 ![dbvisualizer_1](./attachments/dbvisualizer_1.png)
 ![dbvisualizer_2](./attachments/dbvisualizer_2.png)
 
-## ⭐ Create Tables
-
-We can run `src/clickhouse_ddl.sql` in DbVisualizer connected to ClickHouse to create the fact and dimension tables definitions.
-
-![dbvisualizer_3](./attachments/dbvisualizer_3.png)
-![dbvisualizer_4](./attachments/dbvisualizer_4.png)
-![dbvisualizer_5](./attachments/dbvisualizer_5.png)
-
 ## 🔍 EDA, Data Validation, Cleaning, Modeling
 
 Run the following 4 notebooks to understand the raw data and also generate cleaned data and modeled star schema data, ready to be ingested into ClickHouse DW.
@@ -68,6 +60,14 @@ Run the following 4 notebooks to understand the raw data and also generate clean
 - `02_data_validation.ipynb`
 - `03_data_transformation.ipynb`
 - `04_data_modeling.ipynb`
+
+## ⭐ Create Tables
+
+We can run `src/clickhouse_ddl.sql` in DbVisualizer connected to ClickHouse to create the fact and dimension tables definitions.
+
+![dbvisualizer_3](./attachments/dbvisualizer_3.png)
+![dbvisualizer_4](./attachments/dbvisualizer_4.png)
+![dbvisualizer_5](./attachments/dbvisualizer_5.png)
 
 ## 💽 Data Ingestion
 
@@ -317,6 +317,8 @@ After creating the admin user, we don't want our default user to be able to crea
     ![grafana_9](./attachments/grafana_9.png)
 
     We can upload our dashboard JSON files which are located at `REPO_ROOT/grafana`. There are a total of 6 JSON files each corresponding to a dashboard. Thus, we can repeat this process to create 6 different dashboards.
+
+    > Do make sure that the dashboard viewing timeframe is from 2016 - 2018 and the timezone is set to Brazil Standard Time (UTC-3).
 
 ## 🔌 Ports Used
 

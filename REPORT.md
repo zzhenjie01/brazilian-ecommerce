@@ -21,89 +21,19 @@ After a customer purchases the product from Olist Store a seller gets notified t
 
 ## Raw Dataset Schema
 
-![brazilian_ecommerce_raw_schema](attachments/brazilian_ecommerce_raw_schema.png)
+![brazilian_ecommerce_raw_schema](./attachments/brazilian_ecommerce_raw_schema.png)
 
-### `orders`
+![raw_schema](./attachments/raw_schema.png)
 
-- `order_id`
-- `customer_id`
-- `order_status`
-- `order_purchase_timestamp`
-- `order_approved_at`
-- `order_delivered_carrier_date`
-- `order_delivered_customer_date`
-- `order_estimated_delivery_date`
-- `orders.customer_id` references `customers.customer_id`
+## Project Flow
 
-### `order_reviews`
+![project_flow](./attachments/project_flow.png)
 
-- `review_id`
-- `order_id`
-- `review_score`
-- `review_comment_title`
-- `review_comment_message`
-- `review_creation_date`
-- `review_answer_timestamp`
-- `order_reviews.order_id` references `orders.order_id`
-
-### `order_payments`
-
-- `order_id`
-- `payment_sequential`
-- `payment_type`
-- `payment_installments`
-- `payment_value`
-- `order_payments.order_id` references `orders.order_id`
-
-### `order_items`
-
-- `order_id`
-- `order_item_id`
-- `product_id`
-- `seller_id`
-- `shipping_limit_date`
-- `price`
-- `freight_value`
-- `order_items.order_id` references `orders.order_id`
-- `order_items.product_id` references `products.product_id`
-- `order_items.seller_id` references `sellers.seller_id`
-
-### `products`
-
-- `product_id`
-- `product_category_name`
-- `product_name_lenght`
-- `product_description_lenght`
-- `product_photos_qty`
-- `product_weight_g`
-- `product_length_cm`
-- `product_height_cm`
-- `product_width_cm`
-
-### `sellers`
-
-- `seller_id`
-- `seller_zip_code_prefix`
-- `seller_city`
-- `seller_state`
-- `sellers.seller_zip_code_prefix` references `geolocation.geolocation_zip_code_prefix`
-
-### `customers`
-
-- `customer_id`
-- `customer_unique_id`
-- `customer_zip_code_prefix`
-- `customer_city`
-- `customer_state`
-- `customers.customer_zip_code_prefix` references `geolocation.geolocation_zip_code_prefix`
-
-### `geolocation`
-
-- `geolocation_zip_code_prefix`
-- `geolocation_lat`
-- `geolocation_lng`
-- `geolocation_city`
-- `geolocation_state`
+1. Perform EDA on the raw transactional ecommerce data (basic checks)
+2. Perform Data Validation (business checks and referential integrity)
+3. Perform Data Cleaning (dropping duplicate rows, standardizing timestamp to UTC, standardizing accented characters to English characters, boolean flags to mark rows that violate business logic)
+4. Data is modeled into star schema (fact and dimension tables) for Data Warehousing in ClickHouse
+5. Grafana is connected to ClickHouse DW for dashboarding and visualization
 
 ## 1 Exploratory Data Analysis (EDA)
 
@@ -566,7 +496,7 @@ Putting it as a date dimension table also ensure that if we need to calculate me
 - We created a DDL file (`src/clickhouse_ddl.sql`) containing the table definitions and ran them in DbVisualizer connected to ClickHouse, to create these fact and dimension tables.
 - Next, we inserted the records/data into these ClickHouse tables using a Python script (`src/clickhouse_insert.py`).
 
-### 4.7 ClickHouse
+## 5 ClickHouse
 
 ```sql
 -- Dates Dimension Table
@@ -769,6 +699,14 @@ PRIMARY KEY (order_id) -- invalid
 - **Usage:** They are particularly effective for columns with high cardinality (many distinct values) that are used in `WHERE` clauses but aren't part of the primary key.
 - **Types:** Available types include `minmax`, `set`, `bloom_filter`, and full-text indexes for string columns.
 
+**Why are no secondary indexes created?**
+
+- ClickHouse is optimized for read-heavy analytical workloads using primary key ordering and partition pruning.
+- It uses sparse primary indexes via `ORDER BY`, Partition pruning via `PARTITION BY`, Columnar storage for efficient scans.
+- For our project, queries are mostly time-based aggregations (`purchase_timestamp`) and the table is ordered by `(purchase_date_key, order_id, order_item_id)`.
+- This allows for skipping of entire data parts and minimize disk reads.
+- For our project, primary key ordering + partitioning is performant enough.
+
 **Why some columns are Nullable while some are not?**
 
 - In general, columns that are non-null are preferred over nullable columns due to storage optimization and query performance.
@@ -779,3 +717,221 @@ PRIMARY KEY (order_id) -- invalid
     2. A separate "Null Map" file (`column.null.bin`) which stores a boolean mask (1=Null, 0=Value) for every single row.
 - Using `Nullable` effectively doubles the number of file reads the OS has to manage for that column, increasing I/O overhead.
 - Another aspect is query performance. With `Nullable`, CPU cannot just crunch the data. It must first check the "Null Map" to see if the value is valid, then perform the operation. This "branching" logic breaks the pipeline and prevents efficient vectorization.
+
+## 6 Grafana Dashboards
+
+### 6.1 Executive Overview
+
+![executive_overview_dashboard](./attachments/executive_overview_dashboard.png)
+
+**Visualizations Done:**
+
+- Total Revenue
+- Total Orders
+- Average Order Value (AOV)
+- Active Customers
+- Total Items Sold
+- Revenue Trend over Time
+- Order Status Distribution
+- Revenue by Product Category
+- Sales by Day of Week
+- Revenue Distribution by State
+
+**Insights:**
+
+- Revenue are growing steadily in a positive upward trend over time, despite seasonal spikes.
+- Interestingly, there is a sharp spike on 2017-11-23 which is likely due to sale or the platform having massive discounts or vouchers for Christmas sale that year and is very successful.
+- Sao Paulo contributes most to the revenue which is not surprising given that it is the most populus state and the capital city Sao Paulo is also in this state.
+
+### 6.2 Product Analytics
+
+![product_analytics](./attachments/product_analytics_dashboard.png)
+
+**Visualizations Done:**
+
+- Top 10 Products by Revenue
+- Product Category Performance
+- Freight to Price Ratio by Category
+- Product Category by Weight
+- Freight vs Price Plot
+- Freight vs Weight Plot
+- Freight vs Volume Plot
+
+**Insights:**
+
+- Most of the top products by revenue are either health/beauty products or computer related products.
+- This is not surprising as certain skincare products once deemed effective by user would result in repeat purchases.
+- Furthermore, even if the purchase volume is not high as seen in the dashboard, on average skincare items cost quite a lot, thus generating strong revenue.
+- Similarly, computer related products does not have high volume of sales but they are on average more expensive than other products, resulting in strong revenue figures.
+- This is also reflected in the product category performance table.
+- The three scatter plots show a positive correlation between freight and variables affecting freight which is expected.
+- For product weight and volume, it is obvious because the ecommerce company or the logistics partner usually charges based on parcel weight or volume whichever is higher.
+- Goods price is an interesting variable because an expensive goods can occupy little volume or weight such as handbags or perfume bottles. However, due to their nature, they may require special care when handling them which may result in extra charges.
+
+### 6.3 Customer Analytics
+
+![customer_analytics](./attachments/customer_analytics_dashboard.png)
+
+**Visualizations Done:**
+
+- Customer Segmentation
+- Revenue, Orders, Customers by State
+- Customer Lifetime Value Distribution
+- Customer Acquisition Trend
+- Top 10 Cities by Revenue
+
+**Insights:**
+
+- The pie chart shows that most of the customer base is either one-time customers or repeat-purchase only. There are very little regular customers or loyal customers. This means that we need to think of ways to preserve user retention and continual usage.
+- We could potentialy send out or embed in the websites non-intrusive surveys. Another approach would be to collect metrics when they are using such as what products they click on, how long they click and stayed at a page. Or if they have carted items but have not checked out because competitor platforms are cheaper.
+- These metrics could then be analyzed to generate strategies to improve customer retention.
+- From the geomap and the table, we can see that cities belonging to the state of Sao Paulo are mostly among the top 10 cities by revenue.
+- This is likely due to the larger population size as compared to other rural cities or state as verified by looking at the number of customers column in the table. Thus, their large revenue is driven not by consumers spending more but rather sheer volume.
+- Looking at the Customer Lifetime Value Distribution plot, we see that most are spending between 0 to 200 Brazilian Reals. However, given that most of the customers are one-time customers, it is acceptable.
+- The strategy would thus be to improve customer retention rather than getting them to spend more.
+- Looking at the customer acquisition trend time series plot, we see that the platform have been steadily acquiring new users over time with a spike in 2017-11-23, which aligns with the revenue spike seen previously, suggesting that these new users acquired contributed to revenue spike on that day.
+
+### 6.4 Logistics Analytics
+
+![logistics_analytics](./attachments/logistics_analytics_dashboard.png)
+
+**Visualizations Done:**
+
+- Average Delivery Lead Time
+- On-Time Delivery Rate
+- Late Delivery Rate
+- Order Status
+- Same State vs Cross State Delivery Performance
+- Delivery Lead Time Distribution
+- Delivery Performance over Time
+- Freight Value by Category
+- Delivery Performance by State
+
+**Insights:**
+
+- Average Delivery Lead Time of 12.4 days seems reasonable considering the size of Brazil.
+- The On-Time Delivery Rate seems reasonable at 91.8% given current data size is only around 100k. However, once the platform scales up and reaches millions of users, a late delivery rate of 8.2% may drive customers to use competitors platform whose delivery are faster espcially for goods that are perishable like groceries.
+- Observing the Same State vs Cross State Delivery Performance table, we see that cross state delivery takes 2x as long in general and contributes more to the late delivery rate. An explanation is that the longer logistics chain for cross state delivery. A small delay in an earlier part of the chain could trigger a cascading effect leading to many more days delay.
+- Viewing the Delivery Lead Time Distribution, we see that most orders are delivered within 40 days from purchase. However, there are a minority of outliers where the delivery time could go as high as 200 days. These orders are likely due to replacement of goods or refund or perhaps even pre-order.
+- Analyzing the Delivery Performance over Time, we see that late delivery rate are generally low with seasonal spikes as observed by the consistent cycle of spike pattern.
+- Looking at the delivery performance by state, we see that Sao Paulo has the lowest average delivery lead time. This could suggest that most of the sellers and good are from within the state or the logistics is Sao Paulo is just better.
+
+### 6.5 Sales Analytics
+
+![sales_analytics](./attachments/sales_analytics_dashboard.png)
+
+**Visualizations Done:**
+
+- Average Item per Order
+- Revenue per Customer (RPC)
+- Cancellation Rate over Time
+- Day of Week Sales Pattern
+- Hourly Sales Pattern
+
+**Insights:**
+
+- The average items per order is at 1.14 items which is not surprising as many customers are one-time customers and may just want to test out the platform or just use some promotion vouchers or discounts. This is also reflected in the Revenue per Customer (RPC) at R$166 (~ 39.6 SGD).
+- The cancelation rate remains very minimal over time as indicated by the near flat green line in the time series plot.
+- From the heatmap of day of week sales pattern, we observe that weekdays have more orders that weekends which is surprising given that you would expect people to shop more online during weekends when they are not working. One explanation might be that the sellers don't ship out immediately during weekends and wait till Monday making the delivery seem longer. Thus, people will choose to shop on weekdays where the delivery lead time could be shorter. This is of course assuming that the logistics partners don't collect parcels on weekends.
+- The hourly sales pattern heatmap is within expectations as we see that most of the orders are placed between 11am and 3am.
+
+### 6.6 Data Quality
+
+![data_quality](./attachments/data_quality_dashboard.png)
+
+**Visualizations Done:**
+
+- Percentage of Records with Data Quality Issues
+- Missing Timestamps based on Order Status
+- Timestamp Ordering Violation
+- Missing Timestamps by Status
+- Incorrect Timestamp Ordering by Status
+- Data Quality Issues over Time
+- Data Quality Checks Summary
+- Delivered Status without Delivery Timestamp
+- Delivery Timestamp without Deliverd Status
+
+**Insights:**
+
+- The percentage of records with data quality issues is at 1.45%. However, given that we have around 100k records, this may be acceptable for now. Thus, we need to work with the SWEs and Backend engineers to figure out what is wrong and clarify if it is intended to be this way due to certain business logic or it is due to technical errors.
+- Looking at the two bar charts on missing timestamp by status and incorrect timestamp ordering by status, we found that most of the issue came from those marked as delivered status which is also further confirmed by the data quality checks summary table.
+- We also observe from the time series plot that the data quality issues (specifically timestamp ordering violations) are occuring more frequently towards the later periods.
+- All these suggest that the backend or the queues maybe overloaded leading to timestamp ordering violations.
+- We also have 2 tables showing the specific records that have delivered status without delivery timestamp and also those that have delivery timestamp but no delivered status. This will allow us to investigate the data quality issues.
+- Interestingly, we see that those records with delivered timestamp without delivered status are all cancelled orders. This suggest that after the parcel is delivered, the customer returned the order for a refund or exchange.
+
+## ❓ FAQ
+
+**What is a Materialized View (MV) in ClickHouse?**
+
+- Is **not a virtual view**
+- Is a **triggered insert pipeline**
+- Automatically writes aggregated results into another table **when new data is inserted**
+
+```text
+INSERT → Source Table → Materialized View → Target Table
+```
+
+**Why no Materialized Views were created for this project?**
+
+- **Dataset size is small**
+    - The Brazilian e-commerce dataset fits comfortably in memory
+    - Raw fact queries are already fast (< milliseconds)
+- **Exploratory analytics focused**
+    - Metrics evolve during analysis
+    - Hard-coding aggregations too early reduces flexibility
+- **Avoid premature optimization**
+    - increase operational complexity
+    - require backfills (i.e. filling up the target table manually with data since MV are `INSERT` triggered and fill ups new data only) given that the dataset is a historical dataset.
+
+**What is a Data Mart?**
+
+A Data Mart is a **subject-oriented**, pre-aggregated dataset optimized for dashboards, business users and repeated KPI queries. Examples include `daily_sales`, `monthly_revenue`.
+
+**Why no Data Mart was created?**
+
+- **Star schema already enables fast analytics**
+    - Fact + dimension tables means that joins are simple and we have high flexibility to write different queries.
+        
+- **Avoid metric duplication**
+    - Pre-aggregated marts risk: inconsistent KPI definitions, double counting, and schema drift
+
+**Why is `SummingMergeTree` engine dangerous when used with `avg()`?
+
+- `SummingMergeTree` loses information required to compute averages correctly.
+- It automatically merges rows with the same primary key and sums numeric columns. But it does not track counts.
+- Example:
+```text
+Row 1: sum = 100, count = 1
+Row 2: sum = 50,  count = 1
+-> Merged: sum = 150 (count lost!)
+
+avg = sum/count cannot be computed anymore as count is lost
+```
+
+**Is ClickHouse distributed and fault tolerant? How?**
+
+No, ClickHouse is not distributed by default. It runs as a single-node database, but its architecture is built for horizontal scaling using its `Distributed` table engine, which requires manual setup to create clusters, define shards, and configure nodes for distributed operations like sharding and replication. You must explicitly define the cluster, create underlying tables (like `ReplicatedMergeTree`) on each node, and then create a `Distributed` table on top to get a unified, distributed view.
+
+Similarly, it is not fault tolerant by default in a single-node setup.  Fault tolerance and high availability (HA) must be explicitly configured, typically by setting up a cluster with data replication.
+
+**Distribution**
+- Data is sharded across nodes
+- Queries are executed locally on shards and results merged by the coordinator
+        
+```text
+`Client → Distributed Table → Shards → Merge Results`
+```
+
+**Fault tolerance**
+
+Achieved via:
+- Replication using `ReplicatedMergeTree`
+- Coordination through ZooKeeper / ClickHouse Keeper
+- If one replica fails, another serves reads (automatic failover)
+
+**Why is Airflow not used?**
+
+- Airflow is designed for scheduled workflows via complex DAGs for multi-step production pipelines.
+- This project uses a one-time historical dataset where there's no incremental ingestion, late arriving data or SLA requirements.
+- Using Airflow would add unnecessary overhead, increased maintainence complexity and distract from learn goals.
